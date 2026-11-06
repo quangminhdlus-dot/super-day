@@ -54,7 +54,7 @@ OneSignal nhận thông báo từ máy chủ và chuyển đến thiết bị, k
 
 1. Tạo ứng dụng **Web Push** tại https://dashboard.onesignal.com.
 2. Dùng cấu hình website tùy chỉnh (Custom Code). Site origin: `https://quangminhdlus-dot.github.io`. URL mở mặc định: `https://quangminhdlus-dot.github.io/super-day/`.
-3. Bật **Token Identity Verification** để chỉ máy chủ mới có thể cấp quyền gắn thiết bị với UUID của tài khoản. Lấy App ID, App REST API key và Identity Verification key. Nếu gói/tài khoản chưa hỗ trợ cấu hình này, cần xử lý trên OneSignal trước khi mở push nhiều người dùng.
+3. Lấy **App ID** và **App REST API key**. Web SDK v16 gắn thiết bị với tài khoản bằng `OneSignal.login(userId)`, trong đó `userId` là UUID tài khoản Supabase đang đăng nhập. Không cần Identity Verification key hoặc gọi Edge Function để lấy token đăng ký. Yêu cầu gửi thử vẫn phải có phiên Supabase hợp lệ; cron vẫn dùng secret riêng.
 4. Thêm App ID vào **GitHub Actions Variable** `ONESIGNAL_APP_ID`, rồi xuất bản lại.
 5. Trong Supabase, triển khai Edge Function `reminders`. Nếu dùng Supabase CLI trên máy có quyền dự án:
 
@@ -73,7 +73,6 @@ Function chủ động xác minh JWT người dùng bằng Supabase Auth; lệnh
 | `APP_URL` | `https://quangminhdlus-dot.github.io/super-day/` |
 | `ONESIGNAL_APP_ID` | App ID của OneSignal |
 | `ONESIGNAL_REST_API_KEY` | App REST API key, bí mật |
-| `ONESIGNAL_IDENTITY_KEY` | Identity Verification key, bí mật |
 | `REMINDER_CRON_SECRET` | Chuỗi ngẫu nhiên dài ít nhất 32 ký tự, bí mật |
 
 `SUPABASE_URL` và `SUPABASE_SERVICE_ROLE_KEY` được Supabase cấp cho Edge Function. Chỉ mã máy chủ dùng khóa quản trị.
@@ -101,10 +100,10 @@ Hai worker có phạm vi riêng:
 
 Worker OneSignal được đặt ngay trong thư mục scope nên không cần header `Service-Worker-Allowed` để mở rộng ra gốc tên miền, điều GitHub Pages không cho tùy chỉnh. Scope riêng tránh thay thế worker PWA. OneSignal mở URL tuyệt đối chứa `/super-day/`; không dùng đường dẫn `/` cho nhấp thông báo.
 
-Đã kiểm tra tài nguyên và scope PWA ở đường dẫn con bằng Chromium; đã đối chiếu mã SDK OneSignal v16 cho `serviceWorkerPath`, `serviceWorkerParam` và `login(externalId, jwtToken)`. **Chưa có App ID và iPhone thử nghiệm nên đăng ký worker OneSignal với dịch vụ thật và nhận push vẫn chưa được xác nhận.** Tài liệu trực tuyến OneSignal không truy cập được từ môi trường làm việc; đối chiếu thêm cấu hình hiện tại của Dashboard khi kết nối.
+Đã kiểm tra tài nguyên và scope PWA ở đường dẫn con bằng Chromium; đã đối chiếu mã SDK OneSignal v16 cho `serviceWorkerPath`, `serviceWorkerParam` và `login(userId)`. **Chưa có App ID và iPhone thử nghiệm nên đăng ký worker OneSignal với dịch vụ thật và nhận push vẫn chưa được xác nhận.** Tài liệu trực tuyến OneSignal không truy cập được từ môi trường làm việc; đối chiếu thêm cấu hình hiện tại của Dashboard khi kết nối.
 
 ## Thông tin còn cần chủ ứng dụng
 
 Có thể cung cấp trong trò chuyện: **Supabase Project URL**, **publishable/anon key**, **OneSignal App ID**. Đây là cấu hình công khai.
 
-Cần bạn tự đặt tại dịch vụ: SMTP để gửi email cho người dùng công khai, khóa REST và Identity của OneSignal, cron secret và Vault. Sau đó chỉ cần báo đã cấu hình để tiếp tục kiểm chứng; không cần dán giá trị bí mật vào trò chuyện.
+Cần bạn tự đặt tại dịch vụ: SMTP để gửi email cho người dùng công khai, khóa REST của OneSignal, cron secret và Vault. Sau đó chỉ cần báo đã cấu hình để tiếp tục kiểm chứng; không cần dán giá trị bí mật vào trò chuyện.

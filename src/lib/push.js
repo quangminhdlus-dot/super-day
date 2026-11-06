@@ -1,4 +1,4 @@
-import { config, edge } from './api.js';
+import { config } from './api.js';
 let preparing;
 export function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
 export function standalone() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
@@ -19,8 +19,8 @@ export async function preparePush(userId) {
     script.onerror = () => reject(Error('Không tải được hệ thống thông báo.')); document.head.append(script);
   });
   const oneSignal = await preparing;
-  const { token } = await edge('identity');
-  await oneSignal.login(userId, token);
+  // Web SDK v16 associates this device with the signed-in Supabase user's UUID.
+  await oneSignal.login(userId);
   return oneSignal;
 }
 export async function detachPush() {

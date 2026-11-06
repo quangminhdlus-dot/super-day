@@ -25,7 +25,7 @@ Mã MVP đã có giao diện ba màn hình, luồng Supabase Auth email/mật kh
 
 Ứng dụng dùng `supabase.auth.signInWithPassword` và `supabase.auth.updateUser`. Không tạo tài khoản mới, không cần migration, không cần cấu hình SMTP hoặc tên miền cho luồng này. Supabase tiếp tục quản lý phiên; mật khẩu không được lưu vào localStorage, hàng đợi dữ liệu hay mã nguồn. Nếu Supabase yêu cầu xác thực lại khi đổi mật khẩu, làm theo hướng dẫn/mã xác thực hiện trong hộp thoại; ứng dụng giữ nguyên cơ chế bảo mật đó. Đăng nhập bằng liên kết email vẫn có thể dùng dự phòng.
 
-Sau khi cập nhật PWA, nếu vẫn thấy giao diện cũ, đóng các tab/cửa sổ Super Day rồi mở lại; không cần xóa dữ liệu trình duyệt hoặc đăng xuất phiên máy tính.
+Tệp giao diện và các module có mã phiên bản để tránh cache cũ. Sau khi triển khai, tải lại trang để nhận mục mật khẩu và tích hợp thông báo mới; không cần xóa dữ liệu trình duyệt hoặc đăng xuất phiên máy tính.
 
 ## Chạy trên máy
 
@@ -55,4 +55,4 @@ Workflow `.github/workflows/pages.yml` kiểm tra rồi xuất bản nhánh `mai
 - `SUPABASE_ANON_KEY` — publishable hoặc legacy anon key
 - `ONESIGNAL_APP_ID` — có thể bổ sung sau
 
-Chọn **Settings → Pages → Source: GitHub Actions** nếu kho chưa bật Pages. Nếu không có biến, bản trải nghiệm vẫn có thể xuất bản. Khóa quản trị Supabase và khóa REST/Identity của OneSignal chỉ đặt trong **Supabase Edge Function Secrets**, tuyệt đối không đặt vào GitHub Variables dành cho giao diện.
+Chọn **Settings → Pages → Source: GitHub Actions** nếu kho chưa bật Pages. Nếu không có biến, bản trải nghiệm vẫn có thể xuất bản. Khóa quản trị Supabase và khóa REST của OneSignal chỉ đặt trong **Supabase Edge Function Secrets**, tuyệt đối không đặt vào GitHub Variables dành cho giao diện.

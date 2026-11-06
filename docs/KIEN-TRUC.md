@@ -8,6 +8,10 @@
 - **GitHub Pages:** các tệp tĩnh trong `dist`; tài nguyên tương đối, không cần bộ định tuyến máy chủ.
 - **Supabase Cron, Vault, Edge Function, OneSignal:** gửi nhắc phía máy chủ theo múi giờ từng tài khoản, giữ khóa bí mật ngoài mã công khai.
 
+OneSignal Web SDK v16 khởi tạo và gọi `login(userId)` trực tiếp với UUID tài khoản đang đăng nhập. Đăng ký thiết bị không gọi action `identity` và không cần Identity key. Endpoint gửi thử tiếp tục xác minh JWT bằng `auth.getUser`; máy chủ lấy đích gửi từ người dùng đã xác minh, không nhận UUID đích từ client. Cron vẫn kiểm tra secret riêng.
+
+Các URL module và CSS được gắn phiên bản lúc build, kể cả import lồng nhau, để worker cũ không trả mã cũ khi tải lại giao diện mới. Worker mới kích hoạt sau khi cache đủ tệp. Đường dẫn/scope PWA và OneSignal giữ nguyên; không xóa phiên đăng nhập, bản nháp hoặc dữ liệu riêng.
+
 ## Dữ liệu
 
 `profiles` lưu tên/múi giờ. `days` lưu ghi chép và trạng thái khép ngày. `tasks` lưu công việc trong từng ngày; `slot` chỉ nhận 1–3 và unique `(user_id,date,slot)` bảo vệ giới hạn ngay trong database. `reminder_settings` có ba lịch mặc định 06:00, 13:00, 20:30 theo `Asia/Ho_Chi_Minh`.
@@ -30,7 +34,7 @@ Chế độ trải nghiệm dùng một khóa riêng, được gắn nhãn rõ r
 
 ## Kiểm chứng đã chuẩn bị
 
-- `npm test`: kiểm tra các luồng mật khẩu (đăng nhập tài khoản cũ, đổi mật khẩu giữ nguyên dữ liệu, yêu cầu xác thực lại, thông báo lỗi và không lưu mật khẩu), cùng kiểm tra ngày theo múi giờ, giao năm/DST, tuần bắt đầu thứ Hai, năm nhuận, mẫu số thật, chuỗi chuyển ngày, bản vá chờ lưu, URL thông báo trong thư mục con và chữ ký JWT.
+- `npm test`: kiểm tra các luồng mật khẩu (đăng nhập tài khoản cũ, đổi mật khẩu giữ nguyên dữ liệu, yêu cầu xác thực lại, thông báo lỗi và không lưu mật khẩu), cùng kiểm tra ngày theo múi giờ, giao năm/DST, tuần bắt đầu thứ Hai, năm nhuận, mẫu số thật, chuỗi chuyển ngày, bản vá chờ lưu, URL thông báo trong thư mục con và nội dung thông báo.
 - `npm run test:db`: migration chạy trên PostgreSQL; xác minh RLS hai tài khoản, chặn ghi trực tiếp, chặn tài khoản chưa xác minh, giới hạn ba việc, chống sửa chuỗi lịch sử, xung đột, chống lặp thao tác, đếm chuyển, giữ ngày cũ, chặn chuyển việc hoàn thành, múi giờ và chống trùng job. Bản local dùng PGlite; CI dùng PostgreSQL 16 độc lập.
 - Kiểm tra trình duyệt: thêm/sửa/đánh dấu, tự động lưu, tải lại, ghi chép trước khi điều hướng, lịch tháng, chuyển việc và giới hạn ba vị trí, cài giờ nhắc, xuất JSON, đường dẫn PWA; kiểm tra tràn ngang ở 320/390/768/1024/1440 px.
 - Kiểm tra dependencies bằng npm audit.

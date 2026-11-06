@@ -12,12 +12,3 @@ export function notificationUrl(appUrl, kind) {
   if (kind === 'evening') url.searchParams.set('focus', 'reflection');
   return url.href;
 }
-export async function identityToken(appId, userId, key, now = Math.floor(Date.now() / 1000)) {
-  const encode = obj => btoa(JSON.stringify(obj)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-  const header = encode({ alg: 'HS256', typ: 'JWT' });
-  const payload = encode({ iss: appId, exp: now + 600, identity: { external_id: userId } });
-  const message = `${header}.${payload}`;
-  const signingKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', signingKey, new TextEncoder().encode(message));
-  return `${message}.${btoa(String.fromCharCode(...new Uint8Array(signature))).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')}`;
-}

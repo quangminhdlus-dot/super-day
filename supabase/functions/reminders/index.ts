@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0';
-import { identityToken, notificationContent, notificationUrl } from '../_shared/notifications.js';
+import { notificationContent, notificationUrl } from '../_shared/notifications.js';
 
 type NotificationJob = { id: string; user_id: string; kind: string; local_date: string };
 const errorCode = (err: unknown) => err instanceof Error ? err.message : 'unknown';
@@ -15,6 +15,7 @@ Deno.serve(async req => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     if (req.method !== 'POST') return json({ error: 'Phương thức không hợp lệ.' }, 405, cors);
     const { action } = await req.json();
+    if (action !== 'test' && action !== 'cron') return json({ error: 'Thao tác không hợp lệ.' }, 400, cors);
     const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false, autoRefreshToken: false } });
     let userId: string | null = null;
     if (action === 'cron') {
@@ -28,7 +29,6 @@ Deno.serve(async req => {
       userId = data.user.id;
     }
     const appId = env('ONESIGNAL_APP_ID');
-    if (action === 'identity') return json({ token: await identityToken(appId, userId, env('ONESIGNAL_IDENTITY_KEY')) }, 200, cors);
     async function send(job: NotificationJob) {
       if (job.kind !== 'test') {
         const { data: setting, error: settingError } = await db.from('reminder_settings').select('enabled').eq('user_id', job.user_id).eq('kind', job.kind).single();

@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { localDate, shiftDate, weekDates, monthDates, stats, outstanding, blankData, applyMutation } from '../src/lib/domain.js';
-import { notificationContent, notificationUrl, identityToken } from '../supabase/functions/_shared/notifications.js';
-import { createHmac } from 'node:crypto';
+import { notificationContent, notificationUrl } from '../supabase/functions/_shared/notifications.js';
 
 test('A new day follows account timezone, including year and DST boundaries', () => {
   assert.equal(localDate(new Date('2026-12-31T18:00:00Z')), '2027-01-01');
@@ -34,11 +33,4 @@ test('Notification links retain the GitHub Pages subdirectory and correct destin
   assert.equal(notificationUrl('https://example.github.io/super-day/', 'evening'), 'https://example.github.io/super-day/?view=today&focus=reflection');
   assert.match(notificationContent('noon', 1, 2), /1\/2/);
   assert.doesNotMatch(notificationContent('morning'), /0\/3/);
-});
-test('OneSignal JWT is short-lived, bound to the authenticated UUID and correctly signed', async () => {
-  const token = await identityToken('app-id', 'account-id', 'test-only-key', 1000);
-  const [head, body, signature] = token.split('.');
-  const claims = JSON.parse(Buffer.from(body, 'base64url'));
-  assert.deepEqual(claims, { iss: 'app-id', exp: 1600, identity: { external_id: 'account-id' } });
-  assert.equal(signature, createHmac('sha256', 'test-only-key').update(`${head}.${body}`).digest('base64url'));
 });
