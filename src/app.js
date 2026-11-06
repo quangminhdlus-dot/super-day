@@ -155,7 +155,7 @@ async function carry(id) {
     state.data.tasks.push({ ...t, id: crypto.randomUUID(), date: today(), slot, previous_task_id: t.id, carry_count: t.carry_count + 1 }); saveLocal();
   } else {
     await flush(); if (state.outbox.length) return toast('Hãy đồng bộ các thay đổi trước khi chuyển công việc.');
-    try { await mutate({ id: crypto.randomUUID(), kind: 'carry', payload: { id, target: today() } }); state.data = await loadAccount(); saveLocal(); }
+    try { const uid = state.user.id; const task = await mutate({ id: crypto.randomUUID(), kind: 'carry', payload: { id, target: today() } }); if (state.user?.id !== uid) return; state.data.tasks.push(task); saveLocal(); }
     catch (err) { toast(err.message); return; }
   }
   dialog.close(); state.selectedDate = null; navigate('today'); toast('Đã dành một vị trí hôm nay cho công việc này.');
@@ -263,6 +263,7 @@ async function enterAccount(user) {
     catch (err) { if (state.user?.id === user.id) state.pushStatus = err.message; }
   } else state.pushStatus = 'Hệ thống thông báo chưa được kết nối';
   render();
+  if (new URL(location.href).searchParams.get('focus') === 'reflection' && state.view === 'today') requestAnimationFrame(() => document.querySelector('#reflection')?.scrollIntoView({ block: 'start' }));
 }
 async function boot() {
   render();
