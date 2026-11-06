@@ -77,8 +77,8 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         # --use-api bundles remotely; no Docker, database link or database password needed.
-        # verify_jwt = false is read from supabase/config.toml.
-        run: supabase functions deploy reminders --project-ref "$SUPABASE_PROJECT_REF" --use-api
+        # verify_jwt = false is read from supabase/config.toml; --yes confirms this authorized CI deploy.
+        run: supabase functions deploy reminders --project-ref "$SUPABASE_PROJECT_REF" --use-api --yes
 
       - name: Xác nhận trạng thái triển khai thực tế
         env:
