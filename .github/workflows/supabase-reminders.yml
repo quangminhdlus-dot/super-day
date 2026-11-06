@@ -21,8 +21,6 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # Reuse the existing production environment, including any environment-scoped secrets.
-    environment: github-pages
     timeout-minutes: 10
     env:
       # Use the exact project already used by the published frontend.
