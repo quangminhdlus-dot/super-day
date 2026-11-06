@@ -82,6 +82,7 @@ async function accountFixture(page, timezone = 'Asia/Ho_Chi_Minh') {
   await page.addInitScript(value => localStorage.setItem('super-day-auth', JSON.stringify(value)), session);
   await page.goto('./?view=settings');
   await expect(page.locator('[data-sync-status]')).toHaveText('Đã đồng bộ');
+  await page.evaluate(() => document.fonts.ready);
   return { user, data, attempts, applied, hold, setOffline(value) { offline = value; }, get reads() { return reads; }, get finishedReads() { return finishedReads; }, get failures() { return failures; } };
 }
 
@@ -129,7 +130,12 @@ test('A stale background response and a deferred repaint cannot close the picker
   const input = await selectTime(page, 'noon', '17:43', false);
   const original = await input.elementHandle();
   await input.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'center' }));
-  const scrollBefore = await page.evaluate(() => window.scrollY);
+  // Establish the baseline after native focus scrolling has reached its frame.
+  // Font swaps and focus scrolling are separate from the background response.
+  const scrollBefore = await page.evaluate(async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return window.scrollY;
+  });
   releaseReads();
   await expect.poll(() => fixture.finishedReads).toBe(readsBefore + 4);
   await page.evaluate(async () => {
