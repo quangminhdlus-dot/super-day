@@ -81,14 +81,19 @@ test('Task editing, completion and journal autosave survive navigation and reloa
   await page.reload();
   await expect(page.locator('.toggle').first()).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true');
 });
-test('Font choice changes preview immediately and preserves pinch zoom configuration', async ({ page }) => {
+test('Font choice changes preview immediately while the page viewport stays at 100%', async ({ page }) => {
   await page.goto('./?view=settings');
   const preview = page.locator('.font-preview>p');
   const before = await preview.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
   await page.locator('button[data-font-size="xlarge"]').click();
   expect(await preview.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(before);
-  expect(await page.locator('meta[name=viewport]').getAttribute('content')).not.toMatch(/maximum-scale|user-scalable=no/);
-  expect(await page.locator('html').evaluate(el => getComputedStyle(el).touchAction)).toBe('manipulation');
+  const viewport = await page.locator('meta[name=viewport]').getAttribute('content');
+  expect(viewport).toMatch(/initial-scale=1/);
+  expect(viewport).toMatch(/minimum-scale=1/);
+  expect(viewport).toMatch(/maximum-scale=1/);
+  expect(viewport).toMatch(/user-scalable=no/);
+  expect(await page.locator('html').evaluate(el => getComputedStyle(el).touchAction)).toBe('pan-x pan-y');
+  expect(await page.evaluate(() => visualViewport.scale)).toBe(1);
   await page.reload();
   await expect(page.locator('button[data-font-size="xlarge"]')).toHaveAttribute('aria-pressed', 'true');
 });

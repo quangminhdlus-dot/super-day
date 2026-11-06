@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import * as domain from '../src/lib/domain.js';
 import * as passwordAuth from '../src/lib/auth.js';
 import * as appearance from '../src/lib/appearance.js';
+import { installViewportGuard } from '../src/lib/viewport.js';
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 15));
 const source = (await readFile(new URL('../src/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '').replaceAll('import.meta.url', JSON.stringify('https://example.test/super-day/src/app.js'));
@@ -46,7 +47,7 @@ async function appHarness({ signedIn = false, pushEnabled = false } = {}) {
     async reauthenticate() { calls.reauth++; return { error: null }; },
   };
   runInNewContext(source, {
-    ...domain, ...passwordAuth, ...appearance, document, navigator: {},
+    ...domain, ...passwordAuth, ...appearance, installViewportGuard, document, navigator: {},
     window: { addEventListener() {}, scrollTo() {} },
     location: { href: 'https://example.test/super-day/', origin: 'https://example.test' },
     history: { replaceState() {} },
