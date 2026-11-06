@@ -1,0 +1,4 @@
+project_id = "super-day"
+[functions.reminders]
+# The handler validates user JWTs with Auth and authenticates cron with a separate secret.
+verify_jwt = false
