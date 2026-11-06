@@ -33,6 +33,10 @@ npx playwright install chromium
 npm run test:ui
 ```
 
+Chọn giờ dùng ô `type="time"` gốc của trình duyệt, chỉ có giờ và phút. Khi ô đang mở, ứng dụng giữ nguyên DOM và hoãn việc dựng lại trang/nhận dữ liệu nền, tránh đóng bộ chọn hoặc kéo giá trị về giờ cũ. Bấm **Xong**, Enter hoặc rời ô để lưu một giá trị hoàn chỉnh; các lần cuộn trong lúc chọn không gửi RPC. Khi ứng dụng vào nền, giá trị hợp lệ gần nhất được lưu vào hàng đợi hiện có. Giờ trống, chưa hoàn chỉnh hoặc không đổi không ghi đè lịch đã lưu. Giá trị truyền là `HH:mm` theo múi giờ tài khoản, không chuyển qua UTC ở giao diện; định dạng 12/24 giờ của thiết bị do bộ chọn gốc xử lý.
+
+Các kiểm tra tự động dùng SDK Supabase thật với API/dữ liệu giả lập, kiểm tra cả phản hồi chậm, mất mạng, tải lại và nhận dữ liệu nền cũ; kiểm tra SQL chạy trong cơ sở dữ liệu thử nghiệm tách biệt. Chưa có iPhone thật để xác nhận bộ chọn gốc Safari/PWA hoặc thời điểm thông báo xuất hiện trên thiết bị; các kiểm tra này không thay thế kiểm chứng nhận push thực tế.
+
 Cài đặt hiển thị cố định ba lời nhắc: Mục tiêu ngày mới → Kiểm tra tiến độ → Nhìn lại hôm nay. Thứ tự không phụ thuộc giờ cài đặt; các khóa `morning/noon/evening`, giờ, trạng thái và logic gửi phía máy chủ được giữ nguyên. Thẻ hướng dẫn iPhone được bỏ khỏi Cài đặt; manifest, Service Worker và khả năng cài PWA được giữ nguyên.
 
 Bộ kiểm tra chạy trên năm chiều rộng 320–1440px với cả ba cỡ chữ, ba màn hình, nội dung dài, tự lưu, đổi lịch nhắc và đồng bộ metadata bằng SDK Supabase. GitHub Actions chạy các kiểm tra này trước khi xuất bản. Việc nhận push thực tế vẫn cần kiểm tra trên iPhone đã cài PWA.

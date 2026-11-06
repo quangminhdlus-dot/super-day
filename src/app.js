@@ -33,6 +33,8 @@ let syncPromise, loadPromise, toastTimer, stopPushObservation;
 let pushInspection = 0;
 let mutationRevision = 0;
 let appearanceSync;
+let reminderTimeEdit = null, renderAfterTimeEdit = false;
+let reminderTimePointerOwner = null;
 const storageKey = () => `super-day:account:${state.user?.id}`;
 const today = () => localDate(new Date(), state.data.profile.timezone || DEFAULT_ZONE);
 function toast(message) { const t = document.querySelector('#toast'); t.textContent = message; t.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('visible'), 5000); }
@@ -64,17 +66,17 @@ async function flush() {
   })(); return syncPromise;
 }
 async function refresh() {
-  if (state.demo || !state.user || loadPromise || state.syncError) return;
+  if (state.demo || !state.user || loadPromise || state.syncError || editingReminderTime()) return;
   const uid = state.user.id;
   const revision = mutationRevision;
   loadPromise = (async () => {
     await flush(); if (state.outbox.length) return;
-    try { const data = await loadAccount(); if (state.user?.id !== uid || state.outbox.length || revision !== mutationRevision || textDrafts.size) return; state.data = data; saveLocal(); render(); }
+    try { const data = await loadAccount(); if (state.user?.id !== uid || state.outbox.length || revision !== mutationRevision || textDrafts.size || editingReminderTime()) return; state.data = data; saveLocal(); render(); }
     catch (err) { state.syncError = err.message; render(); }
   })();
   try { await loadPromise; } finally { loadPromise = null; }
 }
-function statusText() { return state.demo ? 'Bản trải nghiệm' : state.syncError ? 'Có thay đổi chưa đồng bộ' : state.outbox.length ? `Đang lưu ${state.outbox.length} thay đổi…` : 'Đã đồng bộ'; }
+function statusText() { return state.demo ? 'Bản trải nghiệm' : editingReminderTime() ? 'Đang chọn giờ…' : state.syncError ? 'Có thay đổi chưa đồng bộ' : state.outbox.length ? `Đang lưu ${state.outbox.length} thay đổi…` : 'Đã đồng bộ'; }
 function renderStatus() { document.querySelectorAll('[data-sync-status]').forEach(el => { el.textContent = statusText(); }); }
 function shell(content) {
   return `<aside class="sidebar"><a class="brand" href="./" aria-label="Super Day, trang chủ"><span class="brand-mark">${icon('sun')}</span><span>super day<span class="brand-dot">.</span></span></a>
@@ -168,7 +170,7 @@ function settingsPage() {
   const pushLabel = state.demo ? 'Đăng nhập để nhận nhắc nhở' : state.pushStatus || 'Đang chuẩn bị kết nối…';
   return `<div class="page-heading simple settings-heading"><div><h1>Cài đặt</h1></div></div><div class="settings-layout"><div class="main-column"><section class="panel settings-section"><div class="section-title-icon">${icon('sun')}<h2>Tài khoản</h2></div><div class="setting-row"><span>Email</span><strong>${state.demo ? 'Chưa đăng nhập' : e(state.user.email)}</strong></div><label class="setting-row" for="display-name"><span>Tên</span><input id="display-name" data-profile="display_name" maxlength="80" value="${e(state.data.profile.display_name)}" placeholder="Bạn muốn được gọi là gì?"></label><label class="setting-row" for="timezone"><span>Múi giờ</span><select id="timezone" data-profile="timezone">${[...new Set([DEFAULT_ZONE, state.data.profile.timezone, 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])].map(z => `<option ${z === state.data.profile.timezone ? 'selected' : ''} value="${z}">${z === DEFAULT_ZONE ? 'Việt Nam (GMT+7)' : z.replaceAll('_', ' ')}</option>`).join('')}</select></label>${state.demo ? '<button class="primary-button" data-action="login">Đăng nhập bằng email '+icon('arrow')+'</button>' : '<div class="password-settings"><button class="secondary-button" data-action="change-password">Thiết lập hoặc thay đổi mật khẩu</button><p class="field-hint">Dùng cùng email và mật khẩu để đăng nhập trên iPhone và máy tính.</p></div>'}</section>
     <section class="panel settings-section appearance-section"><div class="section-title-icon">${icon('type')}<h2>Cỡ chữ</h2></div><div class="font-options" role="group" aria-label="Cỡ chữ">${FONT_OPTIONS.map(option => `<button id="font-size-${option.value}" class="font-option ${state.appearance.fontSize === option.value ? 'selected' : ''}" data-font-size="${option.value}" aria-pressed="${state.appearance.fontSize === option.value}"><span>${option.label}</span></button>`).join('')}</div></section>
-    <section class="panel settings-section"><div class="section-title-icon">${icon('bell')}<h2>Thông báo hằng ngày</h2></div><p class="section-description">Ba khoảnh khắc để bắt đầu, tiếp tục và nhìn lại. Theo múi giờ của bạn.</p>${reminders.map(r => `<div class="reminder-row"><span class="reminder-icon">${icon({ morning: 'sun', noon: 'leaf', evening: 'moon' }[r.kind])}</span><div><strong>${{ morning: 'Mục tiêu ngày mới', noon: 'Kiểm tra tiến độ', evening: 'Nhìn lại hôm nay' }[r.kind]}</strong><small>${{ morning: 'Chọn ba điều quan trọng', noon: 'Trở về với điều bạn đã chọn', evening: 'Dành vài dòng cho chính mình' }[r.kind]}</small></div><label class="sr-only" for="time-${r.kind}">Giờ ${r.kind === 'morning' ? 'sáng' : r.kind === 'noon' ? 'trưa' : 'tối'}</label><input type="time" id="time-${r.kind}" data-reminder-time="${r.kind}" value="${e(r.time.slice(0, 5))}" required><button class="toggle ${r.enabled ? 'on' : ''}" role="switch" aria-checked="${r.enabled}" aria-label="Bật tắt ${r.kind === 'morning' ? 'nhắc sáng' : r.kind === 'noon' ? 'nhắc trưa' : 'nhắc tối'}" data-reminder-toggle="${r.kind}"><span></span></button></div>`).join('')}<div class="notification-state"><span class="status-dot ${state.pushInfo?.ready ? '' : 'warning'}"></span>${e(pushLabel)}</div><div class="button-row"><button class="primary-button" data-action="enable-push" ${state.pushBusy || state.pushSending || (!state.demo && !config.oneSignalAppId) ? 'disabled' : ''}>${icon('bell')} ${state.pushBusy ? 'Đang đăng ký…' : !state.demo && !state.push ? 'Kết nối lại thông báo' : 'Cho phép thông báo'}</button><button class="secondary-button" data-action="test-push" ${state.demo || !state.pushInfo?.ready || state.pushBusy || state.pushSending ? 'disabled' : ''}>${state.pushSending ? 'Đang gửi…' : 'Gửi thông báo thử'}</button></div>${state.demo ? '' : pushDiagnostics()}<p class="field-hint">Thông báo thử chỉ xác nhận gửi khi hệ thống chấp nhận. Hãy kiểm tra thông báo trên iPhone của bạn.</p></section>
+    <section class="panel settings-section"><div class="section-title-icon">${icon('bell')}<h2>Thông báo hằng ngày</h2></div><p class="section-description">Ba khoảnh khắc để bắt đầu, tiếp tục và nhìn lại. Theo múi giờ của bạn.</p>${reminders.map(r => `<div class="reminder-row"><span class="reminder-icon">${icon({ morning: 'sun', noon: 'leaf', evening: 'moon' }[r.kind])}</span><div><strong>${{ morning: 'Mục tiêu ngày mới', noon: 'Kiểm tra tiến độ', evening: 'Nhìn lại hôm nay' }[r.kind]}</strong><small>${{ morning: 'Chọn ba điều quan trọng', noon: 'Trở về với điều bạn đã chọn', evening: 'Dành vài dòng cho chính mình' }[r.kind]}</small></div><label class="sr-only" for="time-${r.kind}">Giờ ${r.kind === 'morning' ? 'sáng' : r.kind === 'noon' ? 'trưa' : 'tối'}</label><div class="reminder-time-control"><input type="time" id="time-${r.kind}" data-reminder-time="${r.kind}" value="${e(r.time.slice(0, 5))}" step="60" required><button id="time-done-${r.kind}" class="text-button time-done" data-reminder-done="${r.kind}" aria-label="Xong giờ ${r.kind === 'morning' ? 'Mục tiêu ngày mới' : r.kind === 'noon' ? 'Kiểm tra tiến độ' : 'Nhìn lại hôm nay'}" hidden>Xong</button></div><button class="toggle ${r.enabled ? 'on' : ''}" role="switch" aria-checked="${r.enabled}" aria-label="Bật tắt ${r.kind === 'morning' ? 'nhắc sáng' : r.kind === 'noon' ? 'nhắc trưa' : 'nhắc tối'}" data-reminder-toggle="${r.kind}"><span></span></button></div>`).join('')}<div class="notification-state"><span class="status-dot ${state.pushInfo?.ready ? '' : 'warning'}"></span>${e(pushLabel)}</div><div class="button-row"><button class="primary-button" data-action="enable-push" ${state.pushBusy || state.pushSending || (!state.demo && !config.oneSignalAppId) ? 'disabled' : ''}>${icon('bell')} ${state.pushBusy ? 'Đang đăng ký…' : !state.demo && !state.push ? 'Kết nối lại thông báo' : 'Cho phép thông báo'}</button><button class="secondary-button" data-action="test-push" ${state.demo || !state.pushInfo?.ready || state.pushBusy || state.pushSending ? 'disabled' : ''}>${state.pushSending ? 'Đang gửi…' : 'Gửi thông báo thử'}</button></div>${state.demo ? '' : pushDiagnostics()}<p class="field-hint">Thông báo thử chỉ xác nhận gửi khi hệ thống chấp nhận. Hãy kiểm tra thông báo trên iPhone của bạn.</p></section>
     <section class="panel settings-section"><div class="section-title-icon">${icon('download')}<h2>Dữ liệu cá nhân</h2></div><p class="section-description">Xuất công việc, lịch sử chuyển ngày, ghi chép và cài đặt dưới dạng JSON.</p><div class="button-row"><button class="secondary-button" data-action="export">${icon('download')} Xuất dữ liệu cá nhân</button>${!state.demo ? '<button class="text-button logout-button" data-action="logout">'+icon('logout')+' Đăng xuất</button>' : '<button class="text-button" data-action="reset-demo">Đặt lại bản trải nghiệm</button>'}</div></section></div>
     </div>`;
 }
@@ -180,7 +182,7 @@ function resizeTaskFields() {
 function receiveAppearance(user) {
   state.appearance = readAppearance(localStorage, user);
   storeAppearance(localStorage, user?.id, state.appearance);
-  applyAppearance(document.documentElement, state.appearance);
+  if (!editingReminderTime()) applyAppearance(document.documentElement, state.appearance);
 }
 function syncAppearance() {
   if (appearanceSync || !state.user || !state.appearance.pending) return;
@@ -208,6 +210,11 @@ function chooseFontSize(fontSize) {
   applyAppearance(document.documentElement, state.appearance); render(); syncAppearance();
 }
 function render() {
+  // A native iOS picker belongs to its input DOM node. Replacing that node closes
+  // the picker even if focus is restored afterwards. Apply background UI changes
+  // only after this edit ends; account changes must still replace private content.
+  if (editingReminderTime() || (reminderTimePointerOwner !== null && reminderTimePointerOwner === reminderTimeOwner())) { renderAfterTimeEdit = true; renderStatus(); return; }
+  renderAfterTimeEdit = false;
   applyAppearance(document.documentElement, state.appearance);
   const focused = document.activeElement, id = focused?.id, selection = typeof focused?.selectionStart === 'number' ? [focused.selectionStart, focused.selectionEnd] : null;
   const content = state.view === 'today' ? todayPage() : state.view === 'journey' ? journeyPage() : settingsPage();
@@ -331,6 +338,62 @@ async function handleAction(action) {
 // Commit text after a short pause; flush when leaving a field. Expected field values protect edits on another device.
 const textTimers = new Map();
 const textDrafts = new Map();
+const reminderTimeOwner = () => state.demo ? 'demo' : state.user?.id;
+const validReminderTime = value => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+function editingReminderTime() {
+  if (reminderTimeEdit && (reminderTimeEdit.owner !== reminderTimeOwner() || !reminderTimeEdit.element.isConnected)) reminderTimeEdit = null;
+  return reminderTimeEdit;
+}
+function beginReminderTime(el) {
+  if (!state.data.reminders.some(reminder => reminder.kind === el.dataset.reminderTime)) return;
+  const current = editingReminderTime();
+  if (current?.element === el) return;
+  if (current) finishReminderTime(current.element);
+  reminderTimeEdit = { owner: reminderTimeOwner(), element: el };
+  const done = document.getElementById(`time-done-${el.dataset.reminderTime}`);
+  if (done) done.hidden = false;
+  renderStatus();
+}
+function saveReminderTime(el, reportInvalid = false) {
+  if (!el?.isConnected) return;
+  if (reminderTimeEdit?.element === el && reminderTimeEdit.owner !== reminderTimeOwner()) return;
+  const reminder = state.data.reminders.find(reminder => reminder.kind === el.dataset.reminderTime);
+  if (!reminder) return;
+  // Native controls expose HH:mm in both 12-hour and 24-hour device locales.
+  // Keep this as account-local wall time: never parse it through Date/UTC.
+  if (!validReminderTime(el.value) || !el.validity.valid) {
+    if (reportInvalid) { el.value = reminder.time.slice(0, 5); toast('Hãy chọn đầy đủ giờ và phút. Giờ đã lưu được giữ nguyên.'); }
+    return;
+  }
+  if (el.value !== reminder.time.slice(0, 5)) queue('reminder', { kind: reminder.kind, patch: { time: el.value } }, false);
+}
+function finishReminderTime(el = editingReminderTime()?.element) {
+  if (!el?.isConnected) return;
+  saveReminderTime(el, true);
+  if (reminderTimeEdit?.element === el) reminderTimeEdit = null;
+  const done = document.getElementById(`time-done-${el.dataset.reminderTime}`);
+  if (done) done.hidden = true;
+  renderStatus();
+  // Let the next control receive its click/focus before any deferred repaint.
+  renderAfterReminderTime();
+}
+function renderAfterReminderTime() {
+  if (renderAfterTimeEdit) setTimeout(() => {
+    if (renderAfterTimeEdit && reminderTimePointerOwner === null) render();
+  }, 0);
+}
+// A blur caused by pointer-down must not repaint away the button before its
+// pointer-up/click, especially during a longer tap on iPhone.
+document.addEventListener('pointerdown', event => {
+  if (event.target.closest('button,a') && (editingReminderTime() || renderAfterTimeEdit)) reminderTimePointerOwner = reminderTimeOwner();
+}, { capture: true, passive: true });
+for (const name of ['pointerup', 'pointercancel']) document.addEventListener(name, () => {
+  reminderTimePointerOwner = null; renderAfterReminderTime();
+}, { passive: true });
+document.addEventListener('focusin', event => { if (event.target.matches('[data-reminder-time]')) beginReminderTime(event.target); });
+document.addEventListener('keydown', event => {
+  if (event.target.matches('[data-reminder-time]') && event.key === 'Enter') { event.preventDefault(); finishReminderTime(event.target); event.target.blur(); }
+});
 function commitText(el) {
   const date = el.dataset.editDate;
   if (el.dataset.task) {
@@ -354,15 +417,24 @@ document.addEventListener('input', event => {
   if (el.matches('textarea[data-task],textarea[data-reason]')) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight + 2}px`; }
   clearTimeout(textTimers.get(el.id)); textDrafts.set(el.id, el); textTimers.set(el.id, setTimeout(() => flushText(el.id), 650));
 });
-document.addEventListener('focusout', event => { if (textDrafts.has(event.target.id)) flushText(event.target.id); });
+document.addEventListener('focusout', event => {
+  if (textDrafts.has(event.target.id)) flushText(event.target.id);
+  if (event.target.matches('[data-reminder-time]')) finishReminderTime(event.target);
+});
 document.addEventListener('change', event => {
   const el = event.target;
   if (el.matches('select[data-profile]')) queue('profile', { patch: { [el.dataset.profile]: el.value } });
-  if (el.dataset.reminderTime && el.value) queue('reminder', { kind: el.dataset.reminderTime, patch: { time: el.value } });
+  if (el.dataset.reminderTime) {
+    if (document.activeElement === el) beginReminderTime(el);
+    else saveReminderTime(el, true);
+  }
 });
 document.addEventListener('click', async event => {
   const el = event.target.closest('button,[data-nav]'); if (!el || el.disabled) return;
   flushAllText();
+  const timeInput = editingReminderTime()?.element;
+  if (timeInput) { finishReminderTime(timeInput); timeInput.blur(); }
+  if (el.dataset.reminderDone) return;
   if (el.hasAttribute('data-dialog-close')) { dialog.close(); return; }
   if (el.dataset.fontSize) { chooseFontSize(el.dataset.fontSize); return; }
   if (el.dataset.nav) navigate(el.dataset.nav);
@@ -470,8 +542,8 @@ async function boot() {
 window.addEventListener('online', async () => { if (!state.syncError.includes('CONFLICT')) state.syncError = ''; await flush(); await refresh(); syncAppearance(); render(); });
 window.addEventListener('focus', () => refresh());
 window.addEventListener('resize', () => requestAnimationFrame(resizeTaskFields));
-window.addEventListener('pagehide', () => { flushAllText(); saveLocal(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { flushAllText(); saveLocal(); } else refresh(); });
+window.addEventListener('pagehide', () => { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); } else refresh(); });
 setInterval(() => {
   const clock = document.querySelector('#clock'); if (clock) clock.textContent = formatTime();
   if (today() !== lastDate) { flushAllText(); state.selectedDate = null; lastDate = today(); render(); }

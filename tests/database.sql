@@ -59,6 +59,39 @@ do $$ begin
   if (select count(*) from public.notification_jobs) <> 2 then raise exception 'Retries created extra jobs'; end if;
 end $$;
 reset role;
+-- These edits and scheduler checks run only in the isolated test database.
+-- A wall-time edit must affect only its kind and retain the account timezone.
+set local role authenticated;
+select public.mutate(gen_random_uuid(), 'reminder', '{"kind":"morning","patch":{"time":"00:00"}}');
+do $$ begin
+  if (select time from public.reminder_settings where kind='morning') <> '00:00'::time then raise exception 'Midnight not saved'; end if;
+  if (select count(*) from public.reminder_settings where (kind='noon' and time='13:00'::time) or (kind='evening' and time='20:30'::time)) <> 2 then raise exception 'Other reminder times changed'; end if;
+  if exists(select 1 from public.reminder_settings where not enabled) then raise exception 'Reminder switches changed'; end if;
+  if (select timezone from public.profiles) <> 'Asia/Ho_Chi_Minh' then raise exception 'Timezone changed with time edit'; end if;
+end $$;
+reset role;
+set local role service_role;
+do $$ begin
+  if (select count(*) from public.claim_due_reminders('2026-11-07 16:59:59+00')) <> 0 then raise exception 'Midnight reminder sent early'; end if;
+  if (select count(*) from public.claim_due_reminders('2026-11-07 17:00:00+00')) <> 1 then raise exception 'GMT+7 midnight reminder missed'; end if;
+  if not exists(select 1 from public.notification_jobs where user_id='11111111-1111-4111-8111-111111111111' and kind='morning' and local_date='2026-11-08') then raise exception 'Wrong date at midnight'; end if;
+end $$;
+reset role;
+set local role authenticated;
+select public.mutate(gen_random_uuid(), 'profile', '{"patch":{"timezone":"America/New_York"}}');
+select public.mutate(gen_random_uuid(), 'reminder', '{"kind":"morning","patch":{"time":"12:00"}}');
+select public.mutate(gen_random_uuid(), 'reminder', '{"kind":"evening","patch":{"time":"23:59"}}');
+reset role;
+set local role service_role;
+do $$ begin
+  if (select count(*) from public.claim_due_reminders('2026-11-09 16:59:59+00')) <> 0 then raise exception '12 PM interpreted as AM'; end if;
+  if (select count(*) from public.claim_due_reminders('2026-11-09 17:00:00+00')) <> 1 then raise exception 'Custom-zone noon missed'; end if;
+  if (select count(*) from public.claim_due_reminders('2026-11-09 18:00:00+00')) <> 1 then raise exception 'Custom-zone 13:00 missed'; end if;
+  if (select count(*) from public.claim_due_reminders('2026-11-10 04:59:00+00')) <> 1 then raise exception 'Custom-zone 23:59 missed'; end if;
+  if not exists(select 1 from public.notification_jobs where user_id='11111111-1111-4111-8111-111111111111' and kind='evening' and local_date='2026-11-09') then raise exception '23:59 used UTC date instead of account date'; end if;
+  if (select count(*) from public.reminder_settings where user_id='22222222-2222-4222-8222-222222222222' and enabled and ((kind='morning' and time='06:00'::time) or (kind='noon' and time='13:00'::time) or (kind='evening' and time='20:30'::time))) <> 3 then raise exception 'Other account schedules changed'; end if;
+end $$;
+reset role;
 set local role anon;
 do $$ begin
   begin perform public.mutate(gen_random_uuid(),'profile','{}'); raise exception 'Anonymous RPC accepted'; exception when insufficient_privilege then null; end;

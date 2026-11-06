@@ -281,10 +281,13 @@ main{width:100%;max-width:1260px;margin:auto;padding:22px 20px 24px;min-width:0;
 .reminder-row{display:grid;grid-template-columns:32px minmax(0,1fr) 44px;align-items:start;gap:12px;padding:22px 0;border-bottom:1px solid var(--line);min-width:0}
 .reminder-icon{grid-column:1;grid-row:1;display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:rgba(255,122,26,.09);color:var(--accent)}
 .reminder-icon>.icon{width:21px;height:21px}
-.reminder-row>div{grid-column:2;grid-row:1;min-width:0}
+.reminder-row>div:not(.reminder-time-control){grid-column:2;grid-row:1;min-width:0}
 .reminder-row strong{font-size:var(--text-body);font-weight:700;line-height:1.6;overflow-wrap:anywhere}
 .reminder-row small{display:block;font-size:var(--text-xs);color:var(--muted);line-height:1.7;margin-top:6px;overflow-wrap:anywhere}
-.reminder-row>input{grid-column:2/4;grid-row:2;width:170px;max-width:100%;min-height:46px;padding:10px 11px;border:1px solid #465160;border-radius:9px;background:var(--surface-raised);font-size:max(16px,var(--text-body));font-variant-numeric:tabular-nums;color:var(--ink)}
+.reminder-time-control{grid-column:1/4;grid-row:2;display:flex;align-items:center;gap:8px;min-width:0;width:240px;max-width:100%}
+.reminder-time-control>input{width:170px;max-width:100%;min-height:46px;padding:10px 11px;border:1px solid #465160;border-radius:9px;background:var(--surface-raised);font-size:max(16px,var(--text-body));font-variant-numeric:tabular-nums;color:var(--ink)}
+.time-done{flex-shrink:0;min-width:60px;min-height:46px;padding:8px;text-align:center;justify-content:center}
+.time-done[hidden]{display:none}
 .toggle{grid-column:3;grid-row:1;position:relative;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;background:none;border:0;border-radius:9px}
 .toggle:before{content:'';position:absolute;left:2px;top:10px;width:40px;height:24px;border-radius:20px;background:#465261;transition:background .15s}
 .toggle>span{position:absolute;left:6px;top:14px;display:block;width:16px;height:16px;border-radius:50%;background:var(--ink);transition:transform .15s}
@@ -341,9 +344,9 @@ dialog form>.primary-button{width:100%;margin-top:5px}
   .setting-row{flex-direction:row;align-items:center;justify-content:space-between;gap:22px;min-height:78px}
   .setting-row>input,.setting-row>select{width:58%;max-width:400px}
   .setting-row>strong{max-width:70%;text-align:right}
-  .reminder-row{grid-template-columns:40px minmax(0,1fr) minmax(110px,165px) 44px;align-items:center;gap:14px}
+  .reminder-row{grid-template-columns:40px minmax(0,1fr) 240px 44px;align-items:center;gap:14px}
   .reminder-icon{width:40px;height:40px}
-  .reminder-row>input{grid-column:3;grid-row:1;width:100%}
+  .reminder-row>.reminder-time-control{grid-column:3;grid-row:1;width:240px}
   .reminder-row>.toggle{grid-column:4;grid-row:1}
   .journey-lists{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
