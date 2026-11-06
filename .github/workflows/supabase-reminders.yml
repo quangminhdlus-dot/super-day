@@ -1,0 +1,115 @@
+name: Triển khai Supabase reminders
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/reminders/**'
+      - 'supabase/functions/_shared/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/supabase-reminders.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-reminders-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Use the exact project already used by the published frontend.
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xác định dự án hiện tại và kiểm tra cấu hình
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          if not os.environ.get('SUPABASE_ACCESS_TOKEN'):
+              raise SystemExit('Thiếu Actions Secret SUPABASE_ACCESS_TOKEN.')
+          url = urlparse(os.environ.get('SUPABASE_URL', ''))
+          match = re.fullmatch(r'([a-z0-9]{20})\.supabase\.co', url.hostname or '')
+          if url.scheme != 'https' or not match or url.path not in ('', '/'):
+              raise SystemExit('Actions Variable SUPABASE_URL hiện tại không phải Project URL hợp lệ.')
+          project_ref = match.group(1)
+          config = tomllib.loads(Path('supabase/config.toml').read_text())
+          if config.get('functions', {}).get('reminders', {}).get('verify_jwt') is not False:
+              raise SystemExit('Cấu hình reminders phải giữ verify_jwt = false; handler tự xác thực.')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'SUPABASE_PROJECT_REF={project_ref}\n')
+          print(f'Project ref đang được Super Day sử dụng: {project_ref}')
+          print('Chỉ triển khai reminders. Không chạy migration hoặc thay đổi dữ liệu.')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Kiểm tra xác thực và các luồng ứng dụng
+        run: npm test
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Kiểm tra Edge Function
+        run: deno check supabase/functions/reminders/index.ts
+
+      - uses: supabase/setup-cli@v1
+        with:
+          # v3 retains --project-ref; pin to avoid a future major changing this command.
+          version: 3.0.0
+
+      - name: Triển khai reminders vào dự án hiện tại
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        # --use-api bundles remotely; no Docker, database link or database password needed.
+        # verify_jwt = false is read from supabase/config.toml.
+        run: supabase functions deploy reminders --project-ref "$SUPABASE_PROJECT_REF" --use-api
+
+      - name: Xác nhận trạng thái triển khai thực tế
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions list --project-ref "$SUPABASE_PROJECT_REF" --output json > "$RUNNER_TEMP/reminders-functions.json"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          functions = json.loads((Path(os.environ['RUNNER_TEMP']) / 'reminders-functions.json').read_text())
+          function = next((item for item in functions if item.get('slug') == 'reminders'), None)
+          if not function:
+              raise SystemExit('Supabase chưa trả về function reminders sau lệnh deploy.')
+          if function.get('status') != 'ACTIVE':
+              raise SystemExit(f"reminders chưa ACTIVE: {function.get('status')}")
+          if function.get('verify_jwt') is not False:
+              raise SystemExit('Không xác nhận được verify_jwt = false trên function đã triển khai.')
+          project_ref = os.environ['SUPABASE_PROJECT_REF']
+          result = (
+              f"Project: {project_ref}\n"
+              f"Function: reminders\n"
+              f"Status: {function['status']}\n"
+              f"Version: {function.get('version')}\n"
+              f"verify_jwt: false (xác thực trong handler)\n"
+              f"Commit: {os.environ['GITHUB_SHA']}\n"
+              f"URL: https://{project_ref}.supabase.co/functions/v1/reminders\n"
+              'Không chạy migration, không đặt lại dữ liệu.\n'
+          )
+          print(result)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('### Kết quả Supabase Edge Function\n\n```text\n' + result + '```\n')
+          PY

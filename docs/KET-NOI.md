@@ -56,15 +56,9 @@ OneSignal nhận thông báo từ máy chủ và chuyển đến thiết bị, k
 2. Dùng cấu hình website tùy chỉnh (Custom Code). Site origin: `https://quangminhdlus-dot.github.io`. URL mở mặc định: `https://quangminhdlus-dot.github.io/super-day/`.
 3. Lấy **App ID** và **App REST API key**. Web SDK v16 gắn thiết bị với tài khoản bằng `OneSignal.login(userId)`, trong đó `userId` là UUID tài khoản Supabase đang đăng nhập. Không cần Identity Verification key hoặc gọi Edge Function để lấy token đăng ký. Yêu cầu gửi thử vẫn phải có phiên Supabase hợp lệ; cron vẫn dùng secret riêng.
 4. Thêm App ID vào **GitHub Actions Variable** `ONESIGNAL_APP_ID`, rồi xuất bản lại.
-5. Trong Supabase, triển khai Edge Function `reminders`. Nếu dùng Supabase CLI trên máy có quyền dự án:
+5. Triển khai Edge Function `reminders` bằng GitHub Actions: lưu `SUPABASE_ACCESS_TOKEN` trong **Actions Secrets**, rồi mở **Actions → Triển khai Supabase reminders → Run workflow → main**. Workflow lấy project ref từ `SUPABASE_URL` hiện tại, nên luôn nhắm cùng dự án với giao diện. Khi thay đổi mã hàm hoặc `_shared` trên `main`, workflow tự triển khai lại. Kết quả `ACTIVE`, phiên bản và `verify_jwt = false` được đọc lại từ Supabase và ghi trong phần Summary.
 
-```sh
-supabase login
-supabase link --project-ref MA_DU_AN
-supabase functions deploy reminders --no-verify-jwt
-```
-
-Function chủ động xác minh JWT người dùng bằng Supabase Auth; lệnh tắt kiểm tra ở gateway còn cho phép cron dùng bí mật riêng. Không bỏ bước xác minh trong handler.
+Workflow không chạy migration, không thay đổi dữ liệu hoặc secrets. `verify_jwt = false` được giữ trong `supabase/config.toml`; function chủ động xác minh JWT người dùng bằng Supabase Auth, còn cron dùng bí mật riêng. Không bỏ bước xác minh trong handler.
 
 6. Đặt các giá trị sau trong **Supabase → Edge Functions → Secrets**. Chỉ đặt tại dịch vụ; không commit tệp chứa chúng:
 

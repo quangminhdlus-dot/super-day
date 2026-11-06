@@ -56,3 +56,11 @@ Workflow `.github/workflows/pages.yml` kiểm tra rồi xuất bản nhánh `mai
 - `ONESIGNAL_APP_ID` — có thể bổ sung sau
 
 Chọn **Settings → Pages → Source: GitHub Actions** nếu kho chưa bật Pages. Nếu không có biến, bản trải nghiệm vẫn có thể xuất bản. Khóa quản trị Supabase và khóa REST của OneSignal chỉ đặt trong **Supabase Edge Function Secrets**, tuyệt đối không đặt vào GitHub Variables dành cho giao diện.
+
+## Tự động triển khai Edge Function reminders
+
+Workflow **Triển khai Supabase reminders** dùng Actions Secret `SUPABASE_ACCESS_TOKEN` và lấy project ref từ Actions Variable `SUPABASE_URL` đang dùng cho giao diện. Không cần nhập lại Project ID hoặc cung cấp mật khẩu cơ sở dữ liệu.
+
+Workflow chạy khi đẩy thay đổi của `supabase/functions/reminders/`, `supabase/functions/_shared/`, `supabase/config.toml` hoặc chính workflow lên `main`. Cũng có thể mở **Actions → Triển khai Supabase reminders → Run workflow → main** để chạy thủ công.
+
+Các kiểm tra xác thực và Deno phải qua trước khi triển khai. Workflow chỉ gọi `supabase functions deploy reminders --project-ref ... --use-api`, giữ `verify_jwt = false` trong cấu hình và xác nhận function thực tế có trạng thái `ACTIVE`, phiên bản và cấu hình JWT đúng sau triển khai. Không chạy migration, không link cơ sở dữ liệu, không chỉnh Auth, dữ liệu, lịch cron hoặc secrets của Edge Function. Token chỉ lấy từ GitHub Secrets và không được in ra log.
