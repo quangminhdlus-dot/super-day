@@ -7,8 +7,8 @@ function harness() {
   const handlers = new Map(), calls = { urls: [], deleted: [], skipped: false, claimed: false, puts: [] };
   const self = { location: { href: 'https://example.github.io/super-day/sw.js' }, addEventListener: (name, fn) => handlers.set(name, fn), skipWaiting: async () => { calls.skipped = true; }, clients: { claim: async () => { calls.claimed = true; } } };
   runInNewContext(worker, {
-    self, URL,
-    caches: { open: async () => ({ addAll: async urls => { calls.urls.push(...urls); }, put: async key => { calls.puts.push(key); } }), keys: async () => ['super-day-shell-old', 'super-day-shell-dev', 'other-app-cache'], delete: async name => { calls.deleted.push(name); }, match: async () => undefined },
+    self, URL, Request,
+    caches: { open: async () => ({ addAll: async urls => { assert.ok(urls.every(request => request.cache === 'reload')); calls.urls.push(...urls.map(request => request.url)); }, put: async key => { calls.puts.push(key); } }), keys: async () => ['super-day-shell-old', 'super-day-shell-dev', 'other-app-cache'], delete: async name => { calls.deleted.push(name); }, match: async () => undefined },
     fetch: async () => new Response('current release'),
   });
   return { handlers, calls };
