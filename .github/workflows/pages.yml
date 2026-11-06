@@ -64,3 +64,29 @@ jobs:
       - name: Xuất bản GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Kiểm tra hai Service Worker đã xuất bản
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urljoin, urlparse
+          from urllib.request import Request, urlopen
+
+          base = os.environ['SITE_URL'].rstrip('/') + '/'
+          workers = {
+              'sw.js': 'super-day-shell-',
+              'push/OneSignalSDKWorker.js': 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js',
+          }
+          for path, marker in workers.items():
+              url = urljoin(base, path)
+              with urlopen(Request(url, headers={'Cache-Control': 'no-cache'}), timeout=20) as response:
+                  content_type = response.headers.get('Content-Type', '')
+                  body = response.read().decode('utf-8')
+                  assert response.status == 200, f'{url}: HTTP {response.status}'
+                  assert 'javascript' in content_type or 'ecmascript' in content_type, f'{url}: sai MIME {content_type}'
+                  assert urlparse(response.url).path == urlparse(url).path, f'{url}: bi chuyen huong'
+                  assert marker in body, f'{url}: sai noi dung worker'
+                  print(f'OK {url} — HTTP 200 — {content_type}')
+          PY

@@ -10,7 +10,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 15));
 const source = (await readFile(new URL('../src/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '').replaceAll('import.meta.url', JSON.stringify('https://example.test/super-day/src/app.js'));
 
 // Run the real app event handlers against a small DOM facade. This is not a visual/browser test.
-async function appHarness({ signedIn = false } = {}) {
+async function appHarness({ signedIn = false, pushEnabled = false } = {}) {
   const user = { id: randomUUID(), email: 'owner@example.test' };
   const data = domain.blankData();
   data.profile.display_name = 'Tài khoản đang có';
@@ -33,7 +33,10 @@ async function appHarness({ signedIn = false } = {}) {
     querySelectorAll() { return []; }, getElementById() { return null; },
     addEventListener(name, fn) { const handlers = listeners.get(name) || []; handlers.push(fn); listeners.set(name, handlers); },
   };
-  const calls = { login: [], update: [], reauth: 0, writes: 0 };
+  const calls = { login: [], update: [], reauth: 0, writes: 0, testPush: 0 };
+  let pushFailure = null;
+  let pushInfo = { permission: 'granted', sdkPermission: true, id: 'existing-no-token', tokenPresent: false, optedIn: false, linked: true, expectedScope: '/super-day/push/', workerScope: '/super-day/push/', workerScript: '/super-day/push/OneSignalSDKWorker.js', workerActive: true, nativeTokenPresent: false, ready: false };
+  const pushSdk = { User: { PushSubscription: { id: 'existing-no-token', token: null, optedIn: false } } };
   const auth = {
     onAuthStateChange(fn) { authListener = fn; },
     async getSession() { return { data: { session: signedIn ? { user } : null }, error: null }; },
@@ -48,9 +51,16 @@ async function appHarness({ signedIn = false } = {}) {
     history: { replaceState() {} },
     localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
     crypto: webcrypto, URL, Intl, Date, setTimeout, clearTimeout, setInterval() {}, requestAnimationFrame(fn) { fn(); },
-    configured: true, config: {}, getClient: async () => ({ auth }), loadAccount: async () => structuredClone(data),
+    configured: true, config: { oneSignalAppId: pushEnabled ? 'test-app-id' : '' }, getClient: async () => ({ auth }), loadAccount: async () => structuredClone(data),
     mutate: async () => { calls.writes++; throw Error('Auth must not mutate application records'); },
-    preparePush() {}, detachPush() {}, edge() {}, isIOS: () => false, standalone: () => false,
+    preparePush: async () => pushSdk, detachPush() {}, inspectPush: async () => ({ ...pushInfo }),
+    observePush: () => () => {}, pushStateLabel: info => info?.ready ? 'REGISTERED' : 'PENDING', describePushError: error => error.message,
+    registerPush: async (_sdk, _uid, { onProgress }) => {
+      if (pushFailure) throw pushFailure;
+      pushInfo = { ...pushInfo, id: 'valid-subscription-id', tokenPresent: true, optedIn: true, nativeTokenPresent: true, ready: true };
+      onProgress({ ...pushInfo }); return { ...pushInfo };
+    },
+    edge: async action => { assert.equal(action, 'test'); calls.testPush++; return { accepted: true }; },
   });
   await tick();
   async function click(action) {
@@ -68,7 +78,7 @@ async function appHarness({ signedIn = false } = {}) {
     for (const handler of listeners.get('submit') || []) await handler({ target: form.node, preventDefault() {} });
     await tick();
   }
-  return { auth, user, data, storage, calls, main, dialog, click, form, submit, emit: async (event, session) => { authListener(event, session); await tick(); } };
+  return { auth, user, data, storage, calls, main, dialog, toast, click, form, submit, setPushFailure: error => { pushFailure = error; }, emit: async (event, session) => { authListener(event, session); await tick(); } };
 }
 
 test('Password login uses the existing account, preserves password spaces and clears inputs', async () => {
@@ -157,4 +167,30 @@ test('Invalid login remains actionable and errors do not expose server-supplied 
   assert.equal(form.node.elements.password.value, '');
   assert.ok(!passwordAuth.passwordErrorMessage({ message: secret }, true).includes(secret));
   assert.ok([...app.storage.values()].every(value => !value.includes(secret)));
+});
+
+
+test('Settings and test-send handler reject permission-only devices until complete registration', async () => {
+  const app = await appHarness({ signedIn: true, pushEnabled: true }); await app.click('account');
+  assert.match(app.main.innerHTML, /data-action="test-push" disabled/);
+  assert.match(app.main.innerHTML, /PENDING/);
+  await app.click('test-push');
+  assert.equal(app.calls.testPush, 0);
+  assert.match(app.main.innerHTML, /Thiết bị chưa đăng ký đầy đủ/);
+  const cached = app.storage.get('super-day:account:' + app.user.id);
+  await app.click('enable-push');
+  assert.match(app.main.innerHTML, /REGISTERED/);
+  assert.doesNotMatch(app.main.innerHTML, /data-action="test-push" disabled/);
+  assert.match(app.toast.textContent, /Đã có Push Token/);
+  assert.equal(app.storage.get('super-day:account:' + app.user.id), cached);
+  await app.click('test-push'); assert.equal(app.calls.testPush, 1);
+});
+test('A registration error remains visible in Settings without a success message or test send', async () => {
+  const app = await appHarness({ signedIn: true, pushEnabled: true }); await app.click('account');
+  app.setPushFailure(new Error('[PUSH_NOT_READY] Worker chưa tạo token'));
+  await app.click('enable-push');
+  assert.match(app.main.innerHTML, /PUSH_NOT_READY/);
+  assert.match(app.main.innerHTML, /data-action="test-push" disabled/);
+  assert.doesNotMatch(app.toast.textContent, /Đã có Push Token/);
+  assert.equal(app.calls.testPush, 0);
 });

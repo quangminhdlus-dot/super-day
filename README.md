@@ -64,3 +64,9 @@ Workflow **Triển khai Supabase reminders** dùng Repository Actions Secret `SU
 Workflow chạy khi đẩy thay đổi của `supabase/functions/reminders/`, `supabase/functions/_shared/`, `supabase/config.toml` hoặc chính workflow lên `main`. Cũng có thể mở **Actions → Triển khai Supabase reminders → Run workflow → main** để chạy thủ công.
 
 Các kiểm tra xác thực và Deno phải qua trước khi triển khai. Workflow chỉ gọi `supabase functions deploy reminders --project-ref ... --use-api --yes`, giữ `verify_jwt = false` trong cấu hình và xác nhận function thực tế có trạng thái `ACTIVE`, phiên bản và cấu hình JWT đúng sau triển khai. Không chạy migration, không link cơ sở dữ liệu, không chỉnh Auth, dữ liệu, lịch cron hoặc secrets của Edge Function. Token chỉ lấy từ GitHub Secrets và không được in ra log.
+
+## Chẩn đoán đăng ký thông báo trên iPhone
+
+Ứng dụng chỉ báo đã đăng ký khi OneSignal có ID, Push Token, optedIn và đúng External ID, đồng thời worker push có native PushSubscription hợp lệ. Trong Cài đặt, mục **Chi tiết đăng ký thông báo** hiển thị trạng thái và lỗi kỹ thuật, không hiển thị token đầy đủ. [Hướng dẫn đăng ký lại](docs/KET-NOI.md#đăng-ký-lại-khi-có-quyền-nhưng-chưa-có-push-token).
+
+Worker PWA vẫn ở `/super-day/sw.js`; worker OneSignal vẫn ở `/super-day/push/OneSignalSDKWorker.js`. SDK dùng thư mục riêng và tên tệp tương đối, buộc giữ cấu hình này cho cả kiểu Typical Website. Workflow Pages kiểm tra HTTP, MIME và nội dung của cả hai worker sau khi xuất bản.

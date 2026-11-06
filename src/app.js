@@ -1,7 +1,7 @@
 import { DEFAULT_ZONE, localDate, shiftDate, dateLabel, weekDates, monthDates, stats, outstanding, blankData, demoData, applyMutation } from './lib/domain.js';
 import { configured, config, getClient, loadAccount, mutate, edge } from './lib/api.js';
 import { signInPassword, changePassword, needsPasswordReauth, passwordErrorMessage } from './lib/auth.js';
-import { preparePush, detachPush, isIOS, standalone } from './lib/push.js';
+import { preparePush, detachPush, inspectPush, registerPush, observePush, pushStateLabel, describePushError } from './lib/push.js';
 
 const paths = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
@@ -23,8 +23,9 @@ function persist(key, value) { try { localStorage.setItem(key, JSON.stringify(va
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
 const initialView = new URL(location.href).searchParams.get('view');
-const state = { data: read('super-day:demo:v1', null) || demoData(), demo: true, user: null, view: ['today', 'journey', 'settings'].includes(initialView) ? initialView : 'today', selectedDate: null, anchor: localDate(), range: 'week', outbox: [], syncing: false, syncError: '', loading: false, push: null, pushStatus: '', booting: configured, authError: '' };
-let syncPromise, loadPromise, toastTimer;
+const state = { data: read('super-day:demo:v1', null) || demoData(), demo: true, user: null, view: ['today', 'journey', 'settings'].includes(initialView) ? initialView : 'today', selectedDate: null, anchor: localDate(), range: 'week', outbox: [], syncing: false, syncError: '', loading: false, push: null, pushStatus: '', pushInfo: null, pushError: '', pushBusy: false, pushSending: false, booting: configured, authError: '' };
+let syncPromise, loadPromise, toastTimer, stopPushObservation;
+let pushInspection = 0;
 let mutationRevision = 0;
 const storageKey = () => `super-day:account:${state.user?.id}`;
 const today = () => localDate(new Date(), state.data.profile.timezone || DEFAULT_ZONE);
@@ -123,10 +124,43 @@ function journeyPage() {
 function taskList(tasks, attention = false) {
   return tasks.length ? `<div class="history-task-list">${tasks.map(t => `<div class="history-task"><div><strong>${e(t.title)}</strong><small>${e(dateLabel(t.date, { month: 'numeric' }))}${t.carry_count ? ` · Đã chuyển ${t.carry_count} lần` : ''}${state.data.tasks.some(next => next.previous_task_id === t.id) ? ' · Đã chuyển tiếp' : ''}</small>${attention && t.reason ? `<p>${e(t.reason)}</p>` : ''}</div><button class="icon-button" data-open-day="${t.date}" aria-label="Xem công việc ${e(t.title)}">${icon('arrow')}</button></div>`).join('')}</div>` : `<div class="empty-state">${icon('leaf')}<span>${attention ? 'Chưa có việc cần chú ý trong khoảng này.' : 'Không có công việc còn dang dở trong khoảng này.'}</span></div>`;
 }
+async function updatePushInfo(userId) {
+  const sdk = state.push, inspection = ++pushInspection;
+  if (!sdk || state.user?.id !== userId) return;
+  const info = await inspectPush(sdk, userId);
+  if (inspection !== pushInspection || state.push !== sdk || state.user?.id !== userId) return;
+  const changed = JSON.stringify(state.pushInfo) !== JSON.stringify(info);
+  state.pushInfo = info;
+  if (!state.pushBusy) state.pushStatus = pushStateLabel(info);
+  if (info.ready && state.pushError.startsWith('[PUSH_')) state.pushError = '';
+  if (changed) render();
+}
+async function connectPush(userId) {
+  const sdk = await preparePush(userId);
+  if (state.user?.id !== userId) return;
+  stopPushObservation?.(); state.push = sdk;
+  stopPushObservation = observePush(sdk, () => { updatePushInfo(userId); });
+  await updatePushInfo(userId);
+}
+function pushDiagnostics() {
+  const info = state.pushInfo;
+  if (!info && !state.pushError) return '';
+  const rows = info ? [
+    ['Quyền trình duyệt', info.permission], ['Quyền OneSignal', String(info.sdkPermission)],
+    ['Subscription ID', info.id || 'chưa có'], ['Push Token', info.tokenPresent ? 'đã có' : 'chưa có'],
+    ['optedIn', String(info.optedIn)], ['Liên kết tài khoản', info.linked ? 'đúng tài khoản' : 'chưa xác nhận'],
+    ['Scope OneSignal cần dùng', info.expectedScope], ['Scope thực tế', info.workerScope || 'chưa tìm thấy'],
+    ['Worker đang hoạt động', info.workerScript || 'chưa có'], ['Worker hợp lệ', String(info.workerActive)],
+    ['Web Push của trình duyệt', info.nativeTokenPresent ? 'đã có' : 'chưa có'],
+    ...(info.requestResult !== undefined ? [['Kết quả đăng ký từ SDK', String(info.requestResult)]] : []),
+    ...(info.workerError ? [['Lỗi Service Worker', info.workerError]] : []),
+  ] : [];
+  return `${state.pushError ? `<p class="push-error" role="alert">${e(state.pushError)}</p>` : ''}<details class="push-diagnostics" ${state.pushError ? 'open' : ''}><summary>Chi tiết đăng ký thông báo</summary><dl>${rows.map(([label, value]) => `<div><dt>${e(label)}</dt><dd>${e(value)}</dd></div>`).join('')}</dl><p>Push Token chỉ được kiểm tra trạng thái, không hiển thị hoặc đưa vào bản xuất dữ liệu.</p></details>`;
+}
 function settingsPage() {
   const pushLabel = state.demo ? 'Đăng nhập để nhận nhắc nhở' : state.pushStatus || 'Đang chuẩn bị kết nối…';
   return `<div class="page-heading simple"><div><span class="eyebrow">THEO NHỊP SỐNG CỦA BẠN</span><h1>Một chút tùy chỉnh<span class="heading-dot">.</span></h1><p>Để Super Day trở thành một phần tự nhiên trong ngày.</p></div></div><div class="settings-layout"><div class="main-column"><section class="panel settings-section"><div class="section-title-icon">${icon('sun')}<h2>Không gian của bạn</h2></div><div class="setting-row"><span>Email</span><strong>${state.demo ? 'Chưa đăng nhập' : e(state.user.email)}</strong></div><label class="setting-row" for="display-name"><span>Tên gọi của bạn</span><input id="display-name" data-profile="display_name" maxlength="80" value="${e(state.data.profile.display_name)}" placeholder="Bạn muốn được gọi là gì?"></label><label class="setting-row" for="timezone"><span>Múi giờ</span><select id="timezone" data-profile="timezone">${[...new Set([DEFAULT_ZONE, state.data.profile.timezone, 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])].map(z => `<option ${z === state.data.profile.timezone ? 'selected' : ''} value="${z}">${z === DEFAULT_ZONE ? 'Việt Nam (GMT+7)' : z.replaceAll('_', ' ')}</option>`).join('')}</select></label>${state.demo ? '<button class="primary-button" data-action="login">Đăng nhập bằng email '+icon('arrow')+'</button>' : '<div class="password-settings"><button class="secondary-button" data-action="change-password">Thiết lập hoặc thay đổi mật khẩu</button><p class="field-hint">Dùng cùng email và mật khẩu để đăng nhập trên iPhone và máy tính.</p></div>'}</section>
-    <section class="panel settings-section"><div class="section-title-icon">${icon('bell')}<h2>Những lời nhắc mỗi ngày</h2></div><p class="section-description">Ba khoảnh khắc để bắt đầu, tiếp tục và nhìn lại. Theo múi giờ của bạn.</p>${state.data.reminders.map(r => `<div class="reminder-row"><span class="reminder-icon">${icon({ morning: 'sun', noon: 'leaf', evening: 'moon' }[r.kind])}</span><div><strong>${{ morning: 'Thiết lập ngày mới', noon: 'Kiểm tra tiến độ', evening: 'Nhìn lại một ngày' }[r.kind]}</strong><small>${{ morning: 'Chọn ba điều quan trọng', noon: 'Trở về với điều bạn đã chọn', evening: 'Dành vài dòng cho chính mình' }[r.kind]}</small></div><label class="sr-only" for="time-${r.kind}">Giờ ${r.kind === 'morning' ? 'sáng' : r.kind === 'noon' ? 'trưa' : 'tối'}</label><input type="time" id="time-${r.kind}" data-reminder-time="${r.kind}" value="${e(r.time.slice(0, 5))}" required><button class="toggle ${r.enabled ? 'on' : ''}" role="switch" aria-checked="${r.enabled}" aria-label="Bật tắt ${r.kind === 'morning' ? 'nhắc sáng' : r.kind === 'noon' ? 'nhắc trưa' : 'nhắc tối'}" data-reminder-toggle="${r.kind}"><span></span></button></div>`).join('')}<div class="notification-state"><span class="status-dot ${state.push ? '' : 'warning'}"></span>${e(pushLabel)}</div><div class="button-row"><button class="primary-button" data-action="enable-push" ${!state.demo && !state.push ? 'disabled' : ''}>${icon('bell')} Cho phép thông báo</button><button class="secondary-button" data-action="test-push" ${state.demo || !state.push ? 'disabled' : ''}>Gửi thông báo thử</button></div><p class="field-hint">Thông báo thử chỉ xác nhận gửi khi hệ thống chấp nhận. Hãy kiểm tra thông báo trên iPhone của bạn.</p></section>
+    <section class="panel settings-section"><div class="section-title-icon">${icon('bell')}<h2>Những lời nhắc mỗi ngày</h2></div><p class="section-description">Ba khoảnh khắc để bắt đầu, tiếp tục và nhìn lại. Theo múi giờ của bạn.</p>${state.data.reminders.map(r => `<div class="reminder-row"><span class="reminder-icon">${icon({ morning: 'sun', noon: 'leaf', evening: 'moon' }[r.kind])}</span><div><strong>${{ morning: 'Thiết lập ngày mới', noon: 'Kiểm tra tiến độ', evening: 'Nhìn lại một ngày' }[r.kind]}</strong><small>${{ morning: 'Chọn ba điều quan trọng', noon: 'Trở về với điều bạn đã chọn', evening: 'Dành vài dòng cho chính mình' }[r.kind]}</small></div><label class="sr-only" for="time-${r.kind}">Giờ ${r.kind === 'morning' ? 'sáng' : r.kind === 'noon' ? 'trưa' : 'tối'}</label><input type="time" id="time-${r.kind}" data-reminder-time="${r.kind}" value="${e(r.time.slice(0, 5))}" required><button class="toggle ${r.enabled ? 'on' : ''}" role="switch" aria-checked="${r.enabled}" aria-label="Bật tắt ${r.kind === 'morning' ? 'nhắc sáng' : r.kind === 'noon' ? 'nhắc trưa' : 'nhắc tối'}" data-reminder-toggle="${r.kind}"><span></span></button></div>`).join('')}<div class="notification-state"><span class="status-dot ${state.pushInfo?.ready ? '' : 'warning'}"></span>${e(pushLabel)}</div><div class="button-row"><button class="primary-button" data-action="enable-push" ${state.pushBusy || state.pushSending || (!state.demo && !config.oneSignalAppId) ? 'disabled' : ''}>${icon('bell')} ${state.pushBusy ? 'Đang đăng ký…' : !state.demo && !state.push ? 'Kết nối lại thông báo' : 'Cho phép thông báo'}</button><button class="secondary-button" data-action="test-push" ${state.demo || !state.pushInfo?.ready || state.pushBusy || state.pushSending ? 'disabled' : ''}>${state.pushSending ? 'Đang gửi…' : 'Gửi thông báo thử'}</button></div>${state.demo ? '' : pushDiagnostics()}<p class="field-hint">Thông báo thử chỉ xác nhận gửi khi hệ thống chấp nhận. Hãy kiểm tra thông báo trên iPhone của bạn.</p></section>
     <section class="panel settings-section"><div class="section-title-icon">${icon('download')}<h2>Dữ liệu thuộc về bạn</h2></div><p class="section-description">Xuất công việc, lịch sử chuyển ngày, ghi chép và cài đặt dưới dạng JSON.</p><div class="button-row"><button class="secondary-button" data-action="export">${icon('download')} Xuất dữ liệu cá nhân</button>${!state.demo ? '<button class="text-button logout-button" data-action="logout">'+icon('logout')+' Đăng xuất</button>' : '<button class="text-button" data-action="reset-demo">Đặt lại bản trải nghiệm</button>'}</div></section></div>
     <aside class="right-column"><section class="install-card panel"><span class="soft-icon">${icon('sun')}</span><h2>Một góc nhỏ<br>trên iPhone của bạn.</h2><p>Thêm Super Day vào Màn hình chính để mở nhanh như một ứng dụng.</p><ol><li>Mở trang này bằng <strong>Safari</strong>.</li><li>Nhấn nút <strong>Chia sẻ</strong>.</li><li>Chọn <strong>Thêm vào Màn hình chính</strong>.</li><li>Mở từ biểu tượng Super Day, đăng nhập rồi cho phép thông báo.</li></ol><div class="install-note">Thông báo trên iPhone cần iOS 16.4 trở lên và ứng dụng được thêm vào Màn hình chính.</div></section><p class="private-note">${icon('heart')} Những điều riêng tư, luôn là của bạn.</p></aside></div>`;
 }
@@ -198,13 +232,50 @@ async function handleAction(action) {
   if (action === 'leftovers') openDialog('Những việc còn dang dở', `<p class="dialog-copy">Chủ động chọn một việc để chuyển sang hôm nay. Mỗi việc chiếm một trong ba vị trí.</p><div class="leftovers-list">${outstanding(state.data.tasks).filter(t => t.date < today()).map(t => `<div class="history-task"><div><strong>${e(t.title)}</strong><small>${e(dateLabel(t.date))} · Chuyển ${t.carry_count} lần</small></div><button class="icon-button" data-carry="${t.id}" aria-label="Chuyển ${e(t.title)}">${icon('arrow')}</button></div>`).join('')}</div>`);
   if (action === 'enable-push') {
     if (state.demo) return showLogin();
-    try { await state.push.Notifications.requestPermission(); await state.push.User.PushSubscription.optIn(); state.pushStatus = state.push.Notifications.permission ? 'Đã cho phép thông báo trên thiết bị này' : 'Chưa có quyền. Hãy kiểm tra cài đặt thông báo của thiết bị.'; render(); }
-    catch { toast('Chưa bật được thông báo. Kiểm tra quyền trong cài đặt thiết bị.'); }
+    if (state.pushBusy) return;
+    const userId = state.user.id;
+    state.pushBusy = true; state.pushError = ''; state.pushStatus = 'Đang tạo Push Token và đăng ký thiết bị…'; render();
+    try {
+      if (!state.push) {
+        await connectPush(userId);
+        if (state.user?.id === userId) toast('Kết nối đã sẵn sàng. Hãy bấm Cho phép thông báo để đăng ký từ thao tác của bạn.');
+      } else {
+        const info = await registerPush(state.push, userId, {
+          isCurrentUser: () => state.user?.id === userId,
+          onProgress: info => {
+            if (state.user?.id !== userId) return;
+            ++pushInspection;
+            if (JSON.stringify(state.pushInfo) !== JSON.stringify(info)) { state.pushInfo = info; render(); }
+          },
+        });
+        if (state.user?.id === userId) { state.pushInfo = info; toast('Đã có Push Token và đăng ký nhận thông báo hợp lệ.'); }
+      }
+    } catch (error) {
+      if (state.user?.id === userId) {
+        if (error.pushDetails) state.pushInfo = error.pushDetails;
+        state.pushError = describePushError(error);
+      }
+    } finally {
+      if (state.user?.id === userId) {
+        state.pushBusy = false;
+        state.pushStatus = state.push ? pushStateLabel(state.pushInfo) : 'Chưa kết nối được hệ thống thông báo';
+        render();
+      }
+    }
   }
   if (action === 'test-push') {
-    if (!state.push?.User.PushSubscription.id || !state.push.User.PushSubscription.optedIn) return toast('Hãy cho phép thông báo và chờ thiết bị đăng ký trước.');
-    try { await edge('test'); toast('Hệ thống đã chấp nhận gửi. Hãy kiểm tra thông báo trên iPhone.'); }
-    catch (err) { toast(err.message); }
+    if (!state.push || state.pushSending || state.pushBusy) return;
+    const userId = state.user.id;
+    state.pushSending = true; state.pushError = ''; render();
+    try {
+      const info = await inspectPush(state.push, userId);
+      if (state.user?.id !== userId) return;
+      state.pushInfo = info; state.pushStatus = pushStateLabel(info);
+      if (!info.ready) { state.pushError = 'Thiết bị chưa đăng ký đầy đủ. Hãy bấm Cho phép thông báo và xem Chi tiết đăng ký bên dưới.'; return; }
+      await edge('test');
+      if (state.user?.id === userId) toast('Hệ thống đã chấp nhận gửi. Hãy kiểm tra thông báo thực tế trên iPhone.');
+    } catch (error) { if (state.user?.id === userId) state.pushError = `Gửi thông báo thử: ${describePushError(error)}`; }
+    finally { if (state.user?.id === userId) { state.pushSending = false; render(); } }
   }
   if (action === 'logout') {
     await flush(); if (state.outbox.length) return toast('Hãy đồng bộ hoặc xử lý bản nháp trước khi đăng xuất.');
@@ -307,12 +378,13 @@ document.addEventListener('submit', async event => {
 });
 async function enterAccount(user) {
   if (state.user?.id === user.id) return;
-  state.user = user; state.demo = false; state.syncError = ''; state.push = null; state.pushStatus = 'Đang chuẩn bị kết nối…';
+  stopPushObservation?.(); stopPushObservation = null; ++pushInspection;
+  state.user = user; state.demo = false; state.syncError = ''; state.push = null; state.pushInfo = null; state.pushError = ''; state.pushBusy = false; state.pushSending = false; state.pushStatus = 'Đang chuẩn bị kết nối…';
   const cached = read(storageKey(), null); state.data = cached?.data || blankData(); state.outbox = cached?.outbox || []; state.loading = !cached; render();
   await refresh(); state.loading = false; state.booting = false; render();
   if (config.oneSignalAppId) {
-    try { const push = await preparePush(user.id); if (state.user?.id !== user.id) return; state.push = push; state.pushStatus = push.Notifications.permission ? 'Đã cho phép thông báo trên thiết bị này' : 'Sẵn sàng — bạn có thể cho phép thông báo'; }
-    catch (err) { if (state.user?.id === user.id) state.pushStatus = err.message; }
+    try { await connectPush(user.id); if (state.user?.id !== user.id) return; state.pushStatus = pushStateLabel(state.pushInfo); }
+    catch (error) { if (state.user?.id === user.id) { state.pushStatus = 'Chưa chuẩn bị được đăng ký thông báo'; state.pushError = describePushError(error); } }
   } else state.pushStatus = 'Hệ thống thông báo chưa được kết nối';
   render();
   if (new URL(location.href).searchParams.get('focus') === 'reflection' && state.view === 'today') requestAnimationFrame(() => document.querySelector('#reflection')?.scrollIntoView({ block: 'start' }));
@@ -334,6 +406,8 @@ async function boot() {
           }
         }, 0);
         else if (event === 'SIGNED_OUT') {
+          stopPushObservation?.(); stopPushObservation = null; ++pushInspection;
+          state.pushInfo = null; state.pushError = ''; state.pushBusy = false; state.pushSending = false;
           dialog.close();
           const previousKey = storageKey(), hadDrafts = state.outbox.length > 0; state.user = null; state.demo = true; state.data = read('super-day:demo:v1', null) || demoData(); state.outbox = []; state.syncError = ''; state.push = null; state.loading = false; state.booting = false; if (!hadDrafts) localStorage.removeItem(previousKey); render();
         }

@@ -83,6 +83,18 @@ Workflow không chạy migration, không thay đổi dữ liệu hoặc secrets.
 10. Đóng ứng dụng và **xác nhận thông báo thực sự xuất hiện trên iPhone**. Nhấn vào thông báo, kiểm tra mở đúng Super Day. Thông báo tối mở phần ghi chép.
 11. Đổi một giờ nhắc thành vài phút tới, kiểm tra cron gửi khi ứng dụng đóng. Kiểm tra riêng nhắc sáng/trưa/tối, tắt một nhắc và thử lại. Ghi lại giờ gửi, giờ nhận, phiên bản iOS và thiết bị. Chỉ sau bước này mới đánh dấu hệ thống push đã được kiểm chứng.
 
+### Đăng ký lại khi có quyền nhưng chưa có Push Token
+
+Mở ứng dụng từ biểu tượng **Super Day** trên Màn hình chính iPhone, đóng/mở lại sau khi có bản cập nhật. Vào **Cài đặt**, bấm **Cho phép thông báo**. Nếu nút hiện **Kết nối lại thông báo**, bấm để chuẩn bị SDK rồi bấm **Cho phép thông báo** khi kết nối đã sẵn sàng.
+
+Ứng dụng thực hiện luồng đăng ký OneSignal từ thao tác bấm, bật nhận thông báo, liên kết lại bằng `OneSignal.login(userId)`, rồi chờ trạng thái hoàn chỉnh. Chỉ khi có Subscription ID, Push Token, `optedIn=true`, quyền hợp lệ, đúng tài khoản, đúng worker và native PushSubscription thì mới báo đã đăng ký và bật **Gửi thông báo thử**. Quyền “Cho phép” của iPhone tự nó không xác nhận đã đăng ký.
+
+Mở **Chi tiết đăng ký thông báo** để xem quyền, ID, trạng thái token, optedIn, scope và worker thực tế. Token đầy đủ không hiển thị và không được đưa vào bản xuất dữ liệu. Nếu thất bại, đọc hoặc chụp lại mã lỗi và bảng này; không cần xóa tài khoản, nhật ký hay lịch sử. Các lỗi HTTP/MIME chỉ rõ tệp worker lỗi; scope trả về `/super-day/` với `sw.js` là worker PWA, không phải worker push.
+
+Cấu hình SDK dùng `path: '/super-day/push/'`, `serviceWorkerPath: 'OneSignalSDKWorker.js'`, scope `/super-day/push/` và `serviceWorkerOverrideForTypical: true`. Thư mục và tên tệp được tách riêng để tránh URL bắt đầu bằng `//`, và override giữ đúng đường dẫn cả khi Dashboard chọn Typical Website. Không dùng `navigator.serviceWorker.ready` của worker PWA để kết luận đã có worker push. Đường dẫn tệp và hai scope bên dưới vẫn giữ nguyên.
+
+Sau khi thấy **Đã đăng ký nhận thông báo trên thiết bị này**, bấm **Gửi thông báo thử**, rồi kiểm tra thông báo thực tế trên iPhone. Máy chủ chấp nhận gửi chưa đồng nghĩa iPhone đã nhận.
+
 ### Phạm vi worker trên GitHub Pages
 
 Hai worker có phạm vi riêng:
