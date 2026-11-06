@@ -1,15 +1,17 @@
 export const FONT_OPTIONS = Object.freeze([
   { value: 'small', label: 'Nhỏ', scale: 0.9 },
-  { value: 'medium', label: 'Vừa', scale: 1 },
+  { value: 'medium', label: 'Trung bình', scale: 1 },
   { value: 'large', label: 'Lớn', scale: 1.14 },
-  { value: 'xlarge', label: 'Rất lớn', scale: 1.28 },
 ]);
 const fallback = () => ({ fontSize: 'medium', updatedAt: 0, pending: false });
 export const appearanceKey = userId => `super-day:appearance:${userId || 'demo'}`;
+// Read older local/account preferences without resetting their timestamps or sync state.
+const currentSize = value => value === 'xlarge' ? 'large' : value;
 function normalized(value) {
-  if (!value || !FONT_OPTIONS.some(option => option.value === (value.fontSize || value.font_size))) return null;
+  const fontSize = currentSize(value?.fontSize || value?.font_size);
+  if (!FONT_OPTIONS.some(option => option.value === fontSize)) return null;
   const updatedAt = Number(value.updatedAt) || Date.parse(value.updated_at) || 0;
-  return { fontSize: value.fontSize || value.font_size, updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0, pending: value.pending === true };
+  return { fontSize, updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0, pending: value.pending === true };
 }
 function stored(storage, key) { try { return normalized(JSON.parse(storage.getItem(key))); } catch { return null; } }
 export function readAppearance(storage, user = null) {
@@ -27,7 +29,7 @@ export function storeAppearance(storage, userId, preference) {
   } catch { return false; }
 }
 export function applyAppearance(root, preference) {
-  const option = FONT_OPTIONS.find(option => option.value === preference?.fontSize) || FONT_OPTIONS[1];
+  const option = FONT_OPTIONS.find(option => option.value === currentSize(preference?.fontSize)) || FONT_OPTIONS[1];
   if (!root) return;
   root.style.setProperty('--font-scale', String(option.scale));
   root.dataset.fontSize = option.value;

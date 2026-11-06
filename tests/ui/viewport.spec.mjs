@@ -56,7 +56,7 @@ test('Inputs and dialogs retain 100% scale at every font size', async ({ page, c
   await page.goto('./?view=settings');
   await expect(page.locator('.demo-banner button')).toHaveText(/Đăng nhập/);
   const client = await context.newCDPSession(page);
-  for (const size of ['small', 'medium', 'large', 'xlarge']) {
+  for (const size of ['small', 'medium', 'large']) {
     await page.locator(`button[data-font-size="${size}"]`).tap();
     await page.locator('#display-name').fill('Tên của bạn');
     await expectDefaultScale(page);

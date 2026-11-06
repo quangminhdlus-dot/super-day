@@ -19,11 +19,11 @@ Mã MVP đã có giao diện ba màn hình, luồng Supabase Auth email/mật kh
 
 ## Giao diện tối và cỡ chữ
 
-Cả ba màn hình dùng nền tối, điểm nhấn cam và Be Vietnam Pro có đủ dấu tiếng Việt, đóng gói cục bộ để mở ngoại tuyến. Mở **Cài đặt → Giao diện & Cỡ chữ** để chọn **Nhỏ / Vừa / Lớn / Rất lớn** và xem trước ngay. Mặc định là Vừa. Cỡ chữ áp dụng cho tiêu đề, công việc, nút, ô nhập và điều hướng; thẻ tự tăng chiều cao khi nội dung dài.
+Cả ba màn hình dùng nền tối, điểm nhấn cam và Be Vietnam Pro có đủ dấu tiếng Việt, đóng gói cục bộ để mở ngoại tuyến. Mở **Cài đặt → Cỡ chữ** để chọn **Nhỏ / Trung bình / Lớn**, áp dụng ngay trên giao diện. Mặc định cho tài khoản mới là Trung bình; lựa chọn Rất lớn cũ được đọc thành Lớn, giữ nguyên thời điểm lưu và trạng thái đồng bộ. Cỡ chữ áp dụng cho tiêu đề, công việc, nút, ô nhập và điều hướng; thẻ tự tăng chiều cao khi nội dung dài.
 
 Lựa chọn lưu riêng theo tài khoản trong localStorage, đồng bộ qua `user_metadata.super_day_appearance` của Supabase Auth khi có mạng; bản mới hơn được ưu tiên, thay đổi ngoại tuyến được thử lại khi kết nối trở lại. Không tạo bảng hay migration và không thay đổi dữ liệu công việc, nhật ký hoặc lịch nhắc. Ô nhập tối thiểu 16px và các nút chính tối thiểu 44px.
 
-Ứng dụng mặc định giữ viewport ở tỷ lệ 100% trên cả ba màn hình và hộp thoại, kể cả PWA. `touch-action: pan-x pan-y` cho phép cuộn, loại bỏ thu phóng bằng chạm đúp/hai ngón; viewport khai báo giới hạn tỷ lệ 1. Safari có xử lý dự phòng chỉ cho `gesturestart`/`gesturechange`, không chặn các sự kiện chạm, bấm, chọn văn bản hoặc bàn phím. Một số bản iOS có thể ưu tiên chính sách trợ năng của trình duyệt hơn giới hạn viewport; ứng dụng áp dụng mức kiểm soát nền tảng hỗ trợ, không tự đặt lại tỷ lệ bằng transform và không can thiệp tính năng Thu phóng trợ năng của iOS. Bốn mức cỡ chữ trong Cài đặt vẫn hoạt động độc lập với tỷ lệ viewport.
+Ứng dụng mặc định giữ viewport ở tỷ lệ 100% trên cả ba màn hình và hộp thoại, kể cả PWA. `touch-action: pan-x pan-y` cho phép cuộn, loại bỏ thu phóng bằng chạm đúp/hai ngón; viewport khai báo giới hạn tỷ lệ 1. Safari có xử lý dự phòng chỉ cho `gesturestart`/`gesturechange`, không chặn các sự kiện chạm, bấm, chọn văn bản hoặc bàn phím. Một số bản iOS có thể ưu tiên chính sách trợ năng của trình duyệt hơn giới hạn viewport; ứng dụng áp dụng mức kiểm soát nền tảng hỗ trợ, không tự đặt lại tỷ lệ bằng transform và không can thiệp tính năng Thu phóng trợ năng của iOS. Ba mức cỡ chữ trong Cài đặt vẫn hoạt động độc lập với tỷ lệ viewport.
 
 Kiểm tra bố cục và thao tác trong trình duyệt (dữ liệu mẫu/giả lập, không chạm tài khoản thật):
 
@@ -33,7 +33,9 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-Bộ kiểm tra chạy trên năm chiều rộng 320–1440px với cả bốn cỡ chữ, ba màn hình, nội dung dài, tự lưu, đổi lịch nhắc và đồng bộ metadata bằng SDK Supabase. GitHub Actions chạy các kiểm tra này trước khi xuất bản. Việc nhận push thực tế vẫn cần kiểm tra trên iPhone đã cài PWA.
+Cài đặt hiển thị cố định ba lời nhắc: Mục tiêu ngày mới → Kiểm tra tiến độ → Nhìn lại hôm nay. Thứ tự không phụ thuộc giờ cài đặt; các khóa `morning/noon/evening`, giờ, trạng thái và logic gửi phía máy chủ được giữ nguyên. Thẻ hướng dẫn iPhone được bỏ khỏi Cài đặt; manifest, Service Worker và khả năng cài PWA được giữ nguyên.
+
+Bộ kiểm tra chạy trên năm chiều rộng 320–1440px với cả ba cỡ chữ, ba màn hình, nội dung dài, tự lưu, đổi lịch nhắc và đồng bộ metadata bằng SDK Supabase. GitHub Actions chạy các kiểm tra này trước khi xuất bản. Việc nhận push thực tế vẫn cần kiểm tra trên iPhone đã cài PWA.
 
 ## Đăng nhập bằng mật khẩu với tài khoản hiện tại
 

@@ -30,11 +30,11 @@ async function checkLayout(page) {
   expect(issues).toEqual([]);
 }
 for (const width of [320, 390, 430, 768, 1440]) {
-  test(`Three screens fit at ${width}px in all four font sizes`, async ({ page }, _testInfo) => {
+  test(`Three screens fit at ${width}px in all three font sizes`, async ({ page }, _testInfo) => {
     await page.setViewportSize({ width, height: width >= 1024 ? 1000 : 844 });
     await page.goto('./');
     await page.evaluate(() => document.fonts.ready);
-    for (const size of ['small', 'medium', 'large', 'xlarge']) {
+    for (const size of ['small', 'medium', 'large']) {
       await navigate(page, 'settings');
       await page.locator(`button[data-font-size="${size}"]`).click();
       await expect(page.locator('html')).toHaveAttribute('data-font-size', size);
@@ -47,7 +47,7 @@ for (const width of [320, 390, 430, 768, 1440]) {
       await task.fill('Hoàn thành công việc quan trọng với một tiêu đề dài để kiểm tra đầy đủ dấu tiếng Việt và xuống dòng trên màn hình nhỏ');
       await page.locator('[data-task="2"]').focus(); // flush the edited title
       await checkLayout(page);
-      if ([390, 1440].includes(width) && ['medium', 'xlarge'].includes(size)) {
+      if ([390, 1440].includes(width) && ['medium', 'large'].includes(size)) {
         await page.screenshot({ path: `work/screenshots/today-${width}-${size}.png`, fullPage: true });
       }
       await navigate(page, 'journey');
@@ -56,7 +56,7 @@ for (const width of [320, 390, 430, 768, 1440]) {
       await checkLayout(page);
     }
     await page.reload();
-    await expect(page.locator('html')).toHaveAttribute('data-font-size', 'xlarge');
+    await expect(page.locator('html')).toHaveAttribute('data-font-size', 'large');
   });
 }
 test('Task editing, completion and journal autosave survive navigation and reload', async ({ page }) => {
@@ -81,12 +81,12 @@ test('Task editing, completion and journal autosave survive navigation and reloa
   await page.reload();
   await expect(page.locator('.toggle').first()).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true');
 });
-test('Font choice changes preview immediately while the page viewport stays at 100%', async ({ page }) => {
+test('Font choice changes the interface immediately while the page viewport stays at 100%', async ({ page }) => {
   await page.goto('./?view=settings');
-  const preview = page.locator('.font-preview>p');
-  const before = await preview.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
-  await page.locator('button[data-font-size="xlarge"]').click();
-  expect(await preview.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(before);
+  const heading = page.locator('.settings-heading h1');
+  const before = await heading.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+  await page.locator('button[data-font-size="large"]').click();
+  expect(await heading.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(before);
   const viewport = await page.locator('meta[name=viewport]').getAttribute('content');
   expect(viewport).toMatch(/initial-scale=1/);
   expect(viewport).toMatch(/minimum-scale=1/);
@@ -95,7 +95,7 @@ test('Font choice changes preview immediately while the page viewport stays at 1
   expect(await page.locator('html').evaluate(el => getComputedStyle(el).touchAction)).toBe('pan-x pan-y');
   expect(await page.evaluate(() => visualViewport.scale)).toBe(1);
   await page.reload();
-  await expect(page.locator('button[data-font-size="xlarge"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('button[data-font-size="large"]')).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('An existing signed-in account keeps its data and saves font choice through Supabase metadata', async ({ page }) => {
@@ -137,18 +137,75 @@ test('An existing signed-in account keeps its data and saves font choice through
   await navigate(page, 'settings');
   await expect(page.locator('[data-action="change-password"]')).toBeVisible();
   await page.screenshot({ path: 'work/screenshots/account-settings-390.png', fullPage: true });
-  await page.locator('button[data-font-size="xlarge"]').click();
+  await page.locator('button[data-font-size="large"]').click();
   await expect.poll(() => metadataWrites.length).toBe(1);
   expect(metadataWrites[0]).not.toHaveProperty('email');
   expect(metadataWrites[0]).not.toHaveProperty('password');
   expect(Object.keys(metadataWrites[0].data)).toEqual(['super_day_appearance']);
-  expect(metadataWrites[0].data.super_day_appearance.font_size).toBe('xlarge');
+  expect(metadataWrites[0].data.super_day_appearance.font_size).toBe('large');
   await expect.poll(() => page.evaluate(uid => JSON.parse(localStorage.getItem(`super-day:appearance:${uid}`)).pending, user.id)).toBe(false);
   await checkLayout(page);
   await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('data-font-size', 'xlarge');
+  await expect(page.locator('html')).toHaveAttribute('data-font-size', 'large');
   await expect(page.locator('[data-action="change-password"]')).toBeVisible();
   await navigate(page, 'today');
   await expect(page.locator('[data-task="1"]')).toHaveValue(data.tasks[0].title);
   expect(applicationWrites).toEqual([]);
+});
+
+test('Compact settings preserve saved values and fixed reminder order after edits and reload', async ({ page }) => {
+  const data = demoData();
+  data.profile.display_name = 'Tên đã lưu';
+  data.reminders = [
+    { kind: 'evening', time: '22:10:00', enabled: false },
+    { kind: 'morning', time: '07:45:00', enabled: true },
+    { kind: 'noon', time: '14:15:00', enabled: true },
+  ];
+  await page.addInitScript(value => {
+    if (!localStorage.getItem('super-day:demo:v1')) {
+      localStorage.setItem('super-day:demo:v1', JSON.stringify(value));
+      localStorage.setItem('super-day:appearance:demo', JSON.stringify({ fontSize: 'xlarge', updatedAt: 600, pending: false }));
+    }
+  }, data);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./?view=settings');
+  await expect(page.locator('.settings-heading')).toHaveText('Cài đặt');
+  await expect(page.locator('.settings-section h2')).toHaveText(['Tài khoản', 'Cỡ chữ', 'Thông báo hằng ngày', 'Dữ liệu cá nhân']);
+  await expect(page.getByLabel('Tên', { exact: true })).toHaveValue(data.profile.display_name);
+  await expect(page.locator('.font-option')).toHaveText(['Nhỏ', 'Trung bình', 'Lớn']);
+  await expect(page.locator('button[data-font-size="large"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.font-preview,.install-card,.settings-layout>.right-column')).toHaveCount(0);
+  const reminderNames = ['Mục tiêu ngày mới', 'Kiểm tra tiến độ', 'Nhìn lại hôm nay'];
+  await expect(page.locator('.reminder-row strong')).toHaveText(reminderNames);
+  for (const reminder of data.reminders) {
+    await expect(page.locator(`[data-reminder-time="${reminder.kind}"]`)).toHaveValue(reminder.time.slice(0, 5));
+    await expect(page.locator(`[data-reminder-toggle="${reminder.kind}"]`)).toHaveAttribute('aria-checked', String(reminder.enabled));
+  }
+  // Rendering, font normalization and ordering must not rewrite app records.
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('super-day:demo:v1')))).toEqual(data);
+  await checkLayout(page);
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({ path: 'work/screenshots/compact-settings-390.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await checkLayout(page);
+  await page.screenshot({ path: 'work/screenshots/compact-settings-1440.png', fullPage: true });
+  await page.locator('[data-reminder-time="morning"]').fill('23:45');
+  await page.locator('[data-reminder-toggle="evening"]').click();
+  await page.locator('[data-reminder-toggle="noon"]').click();
+  await page.getByLabel('Tên', { exact: true }).fill('Tên cập nhật');
+  await page.locator('button[data-font-size="small"]').click();
+  await page.reload();
+  await expect(page.locator('.reminder-row strong')).toHaveText(reminderNames);
+  await expect(page.locator('[data-reminder-time="morning"]')).toHaveValue('23:45');
+  await expect(page.locator('[data-reminder-toggle="evening"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('[data-reminder-toggle="noon"]')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByLabel('Tên', { exact: true })).toHaveValue('Tên cập nhật');
+  await expect(page.locator('button[data-font-size="small"]')).toHaveAttribute('aria-pressed', 'true');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('super-day:demo:v1')));
+  const expected = structuredClone(data);
+  expected.profile.display_name = 'Tên cập nhật';
+  expected.reminders.find(reminder => reminder.kind === 'morning').time = '23:45';
+  expected.reminders.find(reminder => reminder.kind === 'evening').enabled = true;
+  expected.reminders.find(reminder => reminder.kind === 'noon').enabled = false;
+  expect(saved).toEqual(expected);
 });
