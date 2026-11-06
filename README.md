@@ -59,7 +59,7 @@ Chọn **Settings → Pages → Source: GitHub Actions** nếu kho chưa bật P
 
 ## Tự động triển khai Edge Function reminders
 
-Workflow **Triển khai Supabase reminders** dùng Actions Secret `SUPABASE_ACCESS_TOKEN` và lấy project ref từ Actions Variable `SUPABASE_URL` đang dùng cho giao diện. Không cần nhập lại Project ID hoặc cung cấp mật khẩu cơ sở dữ liệu.
+Workflow **Triển khai Supabase reminders** dùng môi trường `github-pages` hiện có và Actions Secret `SUPABASE_ACCESS_TOKEN` và lấy project ref từ Actions Variable `SUPABASE_URL` đang dùng cho giao diện. Không cần nhập lại Project ID hoặc cung cấp mật khẩu cơ sở dữ liệu.
 
 Workflow chạy khi đẩy thay đổi của `supabase/functions/reminders/`, `supabase/functions/_shared/`, `supabase/config.toml` hoặc chính workflow lên `main`. Cũng có thể mở **Actions → Triển khai Supabase reminders → Run workflow → main** để chạy thủ công.
 
