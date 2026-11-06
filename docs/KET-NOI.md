@@ -2,7 +2,18 @@
 
 Bạn có thể hoàn thành theo thứ tự dưới đây. Không cần gửi khóa bí mật qua trò chuyện.
 
-## 1. Supabase: tài khoản và dữ liệu
+## Dùng tài khoản đã xác minh: thiết lập mật khẩu một lần
+
+Không chạy lại migration hoặc tạo dự án/tài khoản mới nếu bạn đã đăng nhập được.
+
+1. Mở Super Day trên máy tính còn phiên đăng nhập, vào **Cài đặt → Thiết lập hoặc thay đổi mật khẩu**.
+2. Nhập hai lần mật khẩu mới (ít nhất 8 ký tự và theo quy tắc của Supabase), bấm **Cập nhật mật khẩu**.
+3. Trên iPhone đã thêm ứng dụng vào Màn hình chính, đăng nhập bằng đúng email hiện tại và mật khẩu vừa đặt. Những lần đăng nhập thông thường không gửi email xác nhận.
+4. Nếu Supabase yêu cầu xác thực lại, hộp thoại sẽ hiển thị hướng dẫn và nút **Gửi mã xác thực lại**; nhập mã email rồi cập nhật. Chỉ bước bảo mật bổ sung này mới có thể cần email. Bạn cũng có thể đăng nhập lại bằng mật khẩu hiện tại để làm mới phiên; nếu thiết lập lần đầu, dùng cách đăng nhập email đang hoạt động để có phiên mới rồi quay lại Cài đặt. Không tắt bảo mật để bỏ qua yêu cầu này.
+
+Luồng mật khẩu không cần SMTP mới, tên miền riêng hay dịch vụ gửi email bổ sung. Công việc, nhật ký, lịch sử, UUID tài khoản và RLS được giữ nguyên. Mật khẩu chỉ đi từ ô nhập đến Supabase Auth; không nằm trong bản xuất dữ liệu hoặc localStorage của ứng dụng.
+
+## 1. Thiết lập Supabase mới (chỉ khi triển khai từ đầu)
 
 Supabase cung cấp đăng nhập bằng email và cơ sở dữ liệu dùng chung giữa các thiết bị, với quyền dữ liệu riêng cho từng người.
 
@@ -19,7 +30,7 @@ Supabase cung cấp đăng nhập bằng email và cơ sở dữ liệu dùng ch
 <p>Nếu bạn không yêu cầu đăng nhập, có thể bỏ qua email này.</p>
 ```
 
-6. Cấu hình **Custom SMTP** trước khi mở đăng ký cho mọi người. Dịch vụ gửi email mặc định của Supabase bị giới hạn; có thể chỉ gửi tới các địa chỉ được dự án cho phép. Không coi gửi email cho chủ dự án thành công là đã kiểm chứng đăng ký công khai.
+6. Nếu sau này mở đăng ký công khai cho nhiều người bằng email, có thể cấu hình **Custom SMTP**; đây không phải yêu cầu của luồng mật khẩu cho tài khoản đã xác minh hiện tại. Dịch vụ gửi email mặc định của Supabase bị giới hạn; có thể chỉ gửi tới các địa chỉ được dự án cho phép. Không coi gửi email cho chủ dự án thành công là đã kiểm chứng đăng ký công khai.
 7. Lấy **Project URL** và **publishable key** (hoặc legacy `anon` key) từ trang Connect/API của dự án. Đây là hai giá trị công khai được phép đưa vào ứng dụng; RLS mới là lớp bảo vệ dữ liệu.
 8. Trong kho GitHub, thêm hai **Actions Variables**: `SUPABASE_URL` và `SUPABASE_ANON_KEY`. Chạy lại workflow **Kiểm tra và xuất bản Super Day**.
 9. Mở ứng dụng, đăng nhập bằng email thật. Tạo một việc trên iPhone, mở cùng tài khoản trên máy tính và kiểm tra sau khi đồng bộ. Dữ liệu được tải lại khi quay về ứng dụng và mỗi phút lúc đang mở.

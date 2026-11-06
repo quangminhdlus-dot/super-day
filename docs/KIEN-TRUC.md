@@ -3,7 +3,7 @@
 ## Thành phần
 
 - **JavaScript, CSS, esbuild:** giao diện nhẹ, ba màn hình tiếng Việt. esbuild đóng gói SDK Supabase chính thức; không phụ thuộc CDN để mở phần tài khoản sau khi PWA đã lưu bộ tệp.
-- **Supabase Auth:** email magic link/OTP, phiên lâu dài và làm mới token bằng SDK; không có hệ thống mật khẩu tự xây.
+- **Supabase Auth:** email/mật khẩu bằng `signInWithPassword`, thiết lập/đổi mật khẩu bằng `updateUser`, magic link/OTP dự phòng, phiên lâu dài và làm mới token bằng SDK; không có hệ thống mật khẩu tự xây.
 - **PostgreSQL và RLS:** tài khoản đã xác minh chỉ đọc dữ liệu của mình. Mọi ghi từ giao diện đi qua RPC `mutate`, lấy UUID từ `auth.uid()` thay vì tin UUID do trình duyệt truyền lên.
 - **GitHub Pages:** các tệp tĩnh trong `dist`; tài nguyên tương đối, không cần bộ định tuyến máy chủ.
 - **Supabase Cron, Vault, Edge Function, OneSignal:** gửi nhắc phía máy chủ theo múi giờ từng tài khoản, giữ khóa bí mật ngoài mã công khai.
@@ -30,7 +30,7 @@ Chế độ trải nghiệm dùng một khóa riêng, được gắn nhãn rõ r
 
 ## Kiểm chứng đã chuẩn bị
 
-- `npm test`: bảy kiểm tra ngày theo múi giờ, giao năm/DST, tuần bắt đầu thứ Hai, năm nhuận, mẫu số thật, chuỗi chuyển ngày, bản vá chờ lưu, URL thông báo trong thư mục con và chữ ký JWT.
+- `npm test`: kiểm tra các luồng mật khẩu (đăng nhập tài khoản cũ, đổi mật khẩu giữ nguyên dữ liệu, yêu cầu xác thực lại, thông báo lỗi và không lưu mật khẩu), cùng kiểm tra ngày theo múi giờ, giao năm/DST, tuần bắt đầu thứ Hai, năm nhuận, mẫu số thật, chuỗi chuyển ngày, bản vá chờ lưu, URL thông báo trong thư mục con và chữ ký JWT.
 - `npm run test:db`: migration chạy trên PostgreSQL; xác minh RLS hai tài khoản, chặn ghi trực tiếp, chặn tài khoản chưa xác minh, giới hạn ba việc, chống sửa chuỗi lịch sử, xung đột, chống lặp thao tác, đếm chuyển, giữ ngày cũ, chặn chuyển việc hoàn thành, múi giờ và chống trùng job. Bản local dùng PGlite; CI dùng PostgreSQL 16 độc lập.
 - Kiểm tra trình duyệt: thêm/sửa/đánh dấu, tự động lưu, tải lại, ghi chép trước khi điều hướng, lịch tháng, chuyển việc và giới hạn ba vị trí, cài giờ nhắc, xuất JSON, đường dẫn PWA; kiểm tra tràn ngang ở 320/390/768/1024/1440 px.
 - Kiểm tra dependencies bằng npm audit.

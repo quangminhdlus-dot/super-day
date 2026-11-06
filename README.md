@@ -6,7 +6,7 @@
 
 ## Trạng thái triển khai
 
-Mã MVP đã có giao diện ba màn hình, luồng Supabase Auth email, tự động lưu với hàng đợi bản nháp, cơ sở dữ liệu RLS, lịch sử chuyển ngày, báo cáo tuần/tháng, xuất JSON, PWA và mã thông báo OneSignal phía máy chủ.
+Mã MVP đã có giao diện ba màn hình, luồng Supabase Auth email/mật khẩu và email dự phòng, tự động lưu với hàng đợi bản nháp, cơ sở dữ liệu RLS, lịch sử chuyển ngày, báo cáo tuần/tháng, xuất JSON, PWA và mã thông báo OneSignal phía máy chủ.
 
 **Khi chưa có cấu hình Supabase, ứng dụng mở bản trải nghiệm có nhãn rõ ràng.** Dữ liệu mẫu chỉ lưu trên thiết bị; không có tài khoản thật và không tự nhập dữ liệu mẫu vào tài khoản. Khi đã cấu hình, người dùng đăng nhập để mở dữ liệu riêng trên Supabase.
 
@@ -16,6 +16,16 @@ Mã MVP đã có giao diện ba màn hình, luồng Supabase Auth email, tự đ
 - Địa chỉ Pages dự kiến: https://quangminhdlus-dot.github.io/super-day/
 - [Hướng dẫn kết nối và xuất bản](docs/KET-NOI.md)
 - [Kiến trúc, dữ liệu và kiểm chứng](docs/KIEN-TRUC.md)
+
+## Đăng nhập bằng mật khẩu với tài khoản hiện tại
+
+1. Trên máy tính đang đăng nhập, mở **Cài đặt → Thiết lập hoặc thay đổi mật khẩu**.
+2. Nhập mật khẩu mới và nhập lại để xác nhận, bấm **Cập nhật mật khẩu**.
+3. Trên iPhone, mở Super Day từ Màn hình chính, chọn **Đăng nhập** và dùng cùng email/mật khẩu.
+
+Ứng dụng dùng `supabase.auth.signInWithPassword` và `supabase.auth.updateUser`. Không tạo tài khoản mới, không cần migration, không cần cấu hình SMTP hoặc tên miền cho luồng này. Supabase tiếp tục quản lý phiên; mật khẩu không được lưu vào localStorage, hàng đợi dữ liệu hay mã nguồn. Nếu Supabase yêu cầu xác thực lại khi đổi mật khẩu, làm theo hướng dẫn/mã xác thực hiện trong hộp thoại; ứng dụng giữ nguyên cơ chế bảo mật đó. Đăng nhập bằng liên kết email vẫn có thể dùng dự phòng.
+
+Sau khi cập nhật PWA, nếu vẫn thấy giao diện cũ, đóng các tab/cửa sổ Super Day rồi mở lại; không cần xóa dữ liệu trình duyệt hoặc đăng xuất phiên máy tính.
 
 ## Chạy trên máy
 

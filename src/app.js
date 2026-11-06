@@ -1,5 +1,6 @@
 import { DEFAULT_ZONE, localDate, shiftDate, dateLabel, weekDates, monthDates, stats, outstanding, blankData, demoData, applyMutation } from './lib/domain.js';
 import { configured, config, getClient, loadAccount, mutate, edge } from './lib/api.js';
+import { signInPassword, changePassword, needsPasswordReauth, passwordErrorMessage } from './lib/auth.js';
 import { preparePush, detachPush, isIOS, standalone } from './lib/push.js';
 
 const paths = {
@@ -124,7 +125,7 @@ function taskList(tasks, attention = false) {
 }
 function settingsPage() {
   const pushLabel = state.demo ? 'Đăng nhập để nhận nhắc nhở' : state.pushStatus || 'Đang chuẩn bị kết nối…';
-  return `<div class="page-heading simple"><div><span class="eyebrow">THEO NHỊP SỐNG CỦA BẠN</span><h1>Một chút tùy chỉnh<span class="heading-dot">.</span></h1><p>Để Super Day trở thành một phần tự nhiên trong ngày.</p></div></div><div class="settings-layout"><div class="main-column"><section class="panel settings-section"><div class="section-title-icon">${icon('sun')}<h2>Không gian của bạn</h2></div><div class="setting-row"><span>Email</span><strong>${state.demo ? 'Chưa đăng nhập' : e(state.user.email)}</strong></div><label class="setting-row" for="display-name"><span>Tên gọi của bạn</span><input id="display-name" data-profile="display_name" maxlength="80" value="${e(state.data.profile.display_name)}" placeholder="Bạn muốn được gọi là gì?"></label><label class="setting-row" for="timezone"><span>Múi giờ</span><select id="timezone" data-profile="timezone">${[...new Set([DEFAULT_ZONE, state.data.profile.timezone, 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])].map(z => `<option ${z === state.data.profile.timezone ? 'selected' : ''} value="${z}">${z === DEFAULT_ZONE ? 'Việt Nam (GMT+7)' : z.replaceAll('_', ' ')}</option>`).join('')}</select></label>${state.demo ? '<button class="primary-button" data-action="login">Đăng nhập bằng email '+icon('arrow')+'</button>' : ''}</section>
+  return `<div class="page-heading simple"><div><span class="eyebrow">THEO NHỊP SỐNG CỦA BẠN</span><h1>Một chút tùy chỉnh<span class="heading-dot">.</span></h1><p>Để Super Day trở thành một phần tự nhiên trong ngày.</p></div></div><div class="settings-layout"><div class="main-column"><section class="panel settings-section"><div class="section-title-icon">${icon('sun')}<h2>Không gian của bạn</h2></div><div class="setting-row"><span>Email</span><strong>${state.demo ? 'Chưa đăng nhập' : e(state.user.email)}</strong></div><label class="setting-row" for="display-name"><span>Tên gọi của bạn</span><input id="display-name" data-profile="display_name" maxlength="80" value="${e(state.data.profile.display_name)}" placeholder="Bạn muốn được gọi là gì?"></label><label class="setting-row" for="timezone"><span>Múi giờ</span><select id="timezone" data-profile="timezone">${[...new Set([DEFAULT_ZONE, state.data.profile.timezone, 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])].map(z => `<option ${z === state.data.profile.timezone ? 'selected' : ''} value="${z}">${z === DEFAULT_ZONE ? 'Việt Nam (GMT+7)' : z.replaceAll('_', ' ')}</option>`).join('')}</select></label>${state.demo ? '<button class="primary-button" data-action="login">Đăng nhập bằng email '+icon('arrow')+'</button>' : '<div class="password-settings"><button class="secondary-button" data-action="change-password">Thiết lập hoặc thay đổi mật khẩu</button><p class="field-hint">Dùng cùng email và mật khẩu để đăng nhập trên iPhone và máy tính.</p></div>'}</section>
     <section class="panel settings-section"><div class="section-title-icon">${icon('bell')}<h2>Những lời nhắc mỗi ngày</h2></div><p class="section-description">Ba khoảnh khắc để bắt đầu, tiếp tục và nhìn lại. Theo múi giờ của bạn.</p>${state.data.reminders.map(r => `<div class="reminder-row"><span class="reminder-icon">${icon({ morning: 'sun', noon: 'leaf', evening: 'moon' }[r.kind])}</span><div><strong>${{ morning: 'Thiết lập ngày mới', noon: 'Kiểm tra tiến độ', evening: 'Nhìn lại một ngày' }[r.kind]}</strong><small>${{ morning: 'Chọn ba điều quan trọng', noon: 'Trở về với điều bạn đã chọn', evening: 'Dành vài dòng cho chính mình' }[r.kind]}</small></div><label class="sr-only" for="time-${r.kind}">Giờ ${r.kind === 'morning' ? 'sáng' : r.kind === 'noon' ? 'trưa' : 'tối'}</label><input type="time" id="time-${r.kind}" data-reminder-time="${r.kind}" value="${e(r.time.slice(0, 5))}" required><button class="toggle ${r.enabled ? 'on' : ''}" role="switch" aria-checked="${r.enabled}" aria-label="Bật tắt ${r.kind === 'morning' ? 'nhắc sáng' : r.kind === 'noon' ? 'nhắc trưa' : 'nhắc tối'}" data-reminder-toggle="${r.kind}"><span></span></button></div>`).join('')}<div class="notification-state"><span class="status-dot ${state.push ? '' : 'warning'}"></span>${e(pushLabel)}</div><div class="button-row"><button class="primary-button" data-action="enable-push" ${!state.demo && !state.push ? 'disabled' : ''}>${icon('bell')} Cho phép thông báo</button><button class="secondary-button" data-action="test-push" ${state.demo || !state.push ? 'disabled' : ''}>Gửi thông báo thử</button></div><p class="field-hint">Thông báo thử chỉ xác nhận gửi khi hệ thống chấp nhận. Hãy kiểm tra thông báo trên iPhone của bạn.</p></section>
     <section class="panel settings-section"><div class="section-title-icon">${icon('download')}<h2>Dữ liệu thuộc về bạn</h2></div><p class="section-description">Xuất công việc, lịch sử chuyển ngày, ghi chép và cài đặt dưới dạng JSON.</p><div class="button-row"><button class="secondary-button" data-action="export">${icon('download')} Xuất dữ liệu cá nhân</button>${!state.demo ? '<button class="text-button logout-button" data-action="logout">'+icon('logout')+' Đăng xuất</button>' : '<button class="text-button" data-action="reset-demo">Đặt lại bản trải nghiệm</button>'}</div></section></div>
     <aside class="right-column"><section class="install-card panel"><span class="soft-icon">${icon('sun')}</span><h2>Một góc nhỏ<br>trên iPhone của bạn.</h2><p>Thêm Super Day vào Màn hình chính để mở nhanh như một ứng dụng.</p><ol><li>Mở trang này bằng <strong>Safari</strong>.</li><li>Nhấn nút <strong>Chia sẻ</strong>.</li><li>Chọn <strong>Thêm vào Màn hình chính</strong>.</li><li>Mở từ biểu tượng Super Day, đăng nhập rồi cho phép thông báo.</li></ol><div class="install-note">Thông báo trên iPhone cần iOS 16.4 trở lên và ứng dụng được thêm vào Màn hình chính.</div></section><p class="private-note">${icon('heart')} Những điều riêng tư, luôn là của bạn.</p></aside></div>`;
@@ -137,11 +138,20 @@ function render() {
   if (id) { const input = document.getElementById(id); if (input) { input.focus({ preventScroll: true }); if (selection && input.setSelectionRange) try { input.setSelectionRange(...selection); } catch {} } }
 }
 function openDialog(title, content) { dialog.innerHTML = `<div class="dialog-header"><h2 id="dialog-title">${title}</h2><button class="icon-button" data-dialog-close aria-label="Đóng">${icon('close')}</button></div>${content}`; dialog.showModal(); }
-function showLogin() {
+function showLogin(mode = 'password') {
   if (state.booting) return toast('Đang kiểm tra phiên đăng nhập, vui lòng chờ một chút.');
   if (!configured) { openDialog('Không gian thật đang được chuẩn bị', '<p class="dialog-copy">Bản này đang ở chế độ trải nghiệm. Đăng nhập và đồng bộ sẽ được mở sau khi chủ ứng dụng kết nối dịch vụ tài khoản.</p><button class="primary-button" data-dialog-close>Tiếp tục trải nghiệm</button>'); return; }
-  openDialog('Chào bạn đến với Super Day', `<p class="dialog-copy">Một email, một không gian riêng. Chúng mình sẽ gửi liên kết đăng nhập để bạn bắt đầu.</p><form id="login-form"><label for="login-email">Email của bạn</label><input id="login-email" name="email" type="email" autocomplete="email" placeholder="ban@example.com" required><button class="primary-button" type="submit">Gửi email đăng nhập ${icon('arrow')}</button><p id="auth-message" role="status"></p></form><p class="field-hint">Đăng ký và đăng nhập dùng chung một bước. Không cần tạo mật khẩu. Dữ liệu trải nghiệm sẽ không được nhập vào tài khoản.</p>`);
+  if (mode === 'email') {
+    openDialog('Đăng nhập bằng email', `<p class="dialog-copy">Nhận liên kết đăng nhập qua email như trước đây.</p><form id="login-form"><label for="login-email">Email của bạn</label><input id="login-email" name="email" type="email" autocomplete="email" placeholder="ban@example.com" required><button class="primary-button" type="submit">Gửi email đăng nhập ${icon('arrow')}</button><p id="auth-message" role="status"></p></form><button class="text-button" data-action="login">Đăng nhập bằng mật khẩu</button>`);
+    return;
+  }
+  openDialog('Chào bạn đến với Super Day', `<p class="dialog-copy">Đăng nhập bằng email và mật khẩu của tài khoản hiện có.</p><form id="password-login-form"><label for="login-email">Email của bạn</label><input id="login-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ban@example.com" required><label for="login-password">Mật khẩu</label><input id="login-password" name="password" type="password" autocomplete="current-password" required><button class="primary-button" type="submit">Đăng nhập ${icon('arrow')}</button><p id="auth-message" role="status" aria-live="polite"></p></form><p class="field-hint">Chưa có mật khẩu? Trên máy tính đang đăng nhập, mở Cài đặt → Thiết lập hoặc thay đổi mật khẩu.</p><button class="text-button" data-action="email-login">Đăng nhập bằng liên kết email</button>`);
 }
+function showPasswordChange() {
+  if (state.demo || !state.user) return showLogin();
+  openDialog('Thiết lập hoặc thay đổi mật khẩu', `<p class="dialog-copy">Thiết lập mật khẩu cho tài khoản <strong>${e(state.user.email)}</strong>. Sau đó dùng cùng email và mật khẩu này trên iPhone.</p><form id="password-change-form"><label for="new-password">Mật khẩu mới</label><input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required><label for="confirm-password">Nhập lại mật khẩu mới</label><input id="confirm-password" name="confirmation" type="password" autocomplete="new-password" minlength="8" required><div id="password-reauth" hidden><p class="field-hint">Đây là bước xác thực bổ sung do Supabase yêu cầu cho lần đổi mật khẩu này. Nếu thiết lập lần đầu, bạn cũng có thể dùng liên kết email hiện có để tạo phiên đăng nhập mới, rồi quay lại Cài đặt.</p><button class="text-button" type="button" data-action="password-reauth">Gửi mã xác thực lại</button><label for="password-nonce">Mã xác thực trong email</label><input id="password-nonce" name="nonce" inputmode="numeric" autocomplete="one-time-code" placeholder="Nhập mã xác thực lại"></div><button class="primary-button" type="submit">Cập nhật mật khẩu ${icon('check')}</button><p id="auth-message" role="status" aria-live="polite"></p></form><p class="field-hint">Dùng ít nhất 8 ký tự và đáp ứng quy tắc bảo mật của tài khoản. Mật khẩu được gửi trực tiếp đến Supabase Auth.</p>`);
+}
+
 function exportData() {
   const blob = new Blob([JSON.stringify({ product: 'Super Day', schema_version: 1, exported_at: new Date().toISOString(), mode: state.demo ? 'demo' : 'account', email: state.user?.email || null, ...state.data, pending_changes: state.outbox }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `super-day-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Đã xuất dữ liệu của bạn.');
@@ -162,6 +172,19 @@ async function carry(id) {
 }
 async function handleAction(action) {
   if (action === 'login') return showLogin();
+  if (action === 'email-login') return showLogin('email');
+  if (action === 'change-password') return showPasswordChange();
+  if (action === 'password-reauth') {
+    const form = dialog.querySelector('#password-change-form'); if (!form || state.demo || !state.user) return;
+    const button = form.querySelector('[data-action="password-reauth"]'), message = form.querySelector('#auth-message');
+    button.disabled = true; message.textContent = 'Đang yêu cầu mã xác thực lại…';
+    try {
+      const db = await getClient(); const { error } = await db.auth.reauthenticate(); if (error) throw error;
+      message.textContent = 'Đã yêu cầu gửi mã xác thực lại đến email tài khoản. Nhập mã rồi bấm Cập nhật mật khẩu.';
+      form.elements.nonce.focus();
+    } catch (err) { message.textContent = passwordErrorMessage(err, true); }
+    finally { button.disabled = false; }
+  }
   if (action === 'account') return navigate('settings');
   if (action === 'back-today') { state.selectedDate = null; render(); }
   if (action === 'current-period') { state.anchor = today(); state.selectedDate = null; render(); }
@@ -239,6 +262,35 @@ document.addEventListener('click', async event => {
   if (el.dataset.action) await handleAction(el.dataset.action);
 });
 dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); } });
+// Keep secrets only in password inputs while this dialog is open, never in saved drafts or app state.
+dialog.addEventListener('close', () => {
+  dialog.querySelectorAll('input[type="password"], input[name="nonce"]').forEach(input => { input.value = ''; });
+});
+document.addEventListener('submit', async event => {
+  const form = event.target;
+  if (!['password-login-form', 'password-change-form'].includes(form.id)) return;
+  event.preventDefault();
+  const changing = form.id === 'password-change-form';
+  if (changing && (state.demo || !state.user)) return;
+  const button = form.querySelector('button[type="submit"]'), message = form.querySelector('#auth-message');
+  if (button.disabled) return;
+  button.disabled = true; message.textContent = changing ? 'Đang cập nhật mật khẩu…' : 'Đang đăng nhập…';
+  try {
+    const db = await getClient();
+    if (changing) {
+      const { user } = await changePassword(db.auth, { password: form.elements.password.value, confirmation: form.elements.confirmation.value, nonce: form.elements.nonce.value });
+      if (state.user?.id === user.id) state.user = user;
+      form.reset(); form.querySelector('#password-reauth').hidden = true;
+      message.textContent = 'Đã cập nhật mật khẩu. Bạn có thể dùng email và mật khẩu này để đăng nhập trên iPhone và máy tính.';
+    } else {
+      await signInPassword(db.auth, form.elements.email.value, form.elements.password.value);
+      form.reset(); dialog.close();
+    }
+  } catch (err) {
+    message.textContent = passwordErrorMessage(err, changing);
+    if (changing && needsPasswordReauth(err)) form.querySelector('#password-reauth').hidden = false;
+  } finally { button.disabled = false; }
+});
 document.addEventListener('submit', async event => {
   if (event.target.id !== 'login-form' && event.target.id !== 'otp-form') return;
   event.preventDefault(); const form = event.target, button = form.querySelector('button[type="submit"]'); button.disabled = true;
@@ -247,7 +299,7 @@ document.addEventListener('submit', async event => {
     const db = await getClient(); const email = form.elements.email.value.trim();
     if (form.id === 'login-form') {
       const { error } = await db.auth.signInWithOtp({ email, options: { emailRedirectTo: new URL('../', import.meta.url).href } }); if (error) throw error;
-      openDialog('Kiểm tra hộp thư của bạn', `<p class="dialog-copy">Email đăng nhập đã được gửi đến <strong>${e(email)}</strong>. Nhấn liên kết trong email hoặc nhập mã nếu email có mã xác nhận.</p><form id="otp-form"><input name="email" type="hidden" value="${e(email)}"><label for="otp-code">Mã xác nhận</label><input id="otp-code" name="token" inputmode="numeric" pattern="[0-9]{6,8}" maxlength="8" autocomplete="one-time-code" required placeholder="Nhập mã trong email"><button class="primary-button" type="submit">Mở không gian của tôi ${icon('arrow')}</button><p id="auth-message" role="status"></p></form><button class="text-button" data-action="login">Dùng email khác hoặc gửi lại</button>`);
+      openDialog('Kiểm tra hộp thư của bạn', `<p class="dialog-copy">Email đăng nhập đã được gửi đến <strong>${e(email)}</strong>. Nhấn liên kết trong email hoặc nhập mã nếu email có mã xác nhận.</p><form id="otp-form"><input name="email" type="hidden" value="${e(email)}"><label for="otp-code">Mã xác nhận</label><input id="otp-code" name="token" inputmode="numeric" pattern="[0-9]{6,8}" maxlength="8" autocomplete="one-time-code" required placeholder="Nhập mã trong email"><button class="primary-button" type="submit">Mở không gian của tôi ${icon('arrow')}</button><p id="auth-message" role="status"></p></form><button class="text-button" data-action="email-login">Dùng email khác hoặc gửi lại</button>`);
     } else {
       const { error } = await db.auth.verifyOtp({ email, token: form.elements.token.value, type: 'email' }); if (error) throw error; dialog.close();
     }
@@ -273,8 +325,16 @@ async function boot() {
     try {
       const db = await getClient();
       db.auth.onAuthStateChange((event, session) => {
-        if (session?.user) setTimeout(() => { dialog.close(); enterAccount(session.user); }, 0);
+        if (session?.user) setTimeout(() => {
+          if (state.user?.id !== session.user.id) { dialog.close(); enterAccount(session.user); }
+          else {
+            state.user = session.user;
+            // USER_UPDATED and token refreshes must leave the password-change form and its result visible.
+            if (event === 'SIGNED_IN' && dialog.querySelector('#password-login-form, #login-form, #otp-form')) dialog.close();
+          }
+        }, 0);
         else if (event === 'SIGNED_OUT') {
+          dialog.close();
           const previousKey = storageKey(), hadDrafts = state.outbox.length > 0; state.user = null; state.demo = true; state.data = read('super-day:demo:v1', null) || demoData(); state.outbox = []; state.syncError = ''; state.push = null; state.loading = false; state.booting = false; if (!hadDrafts) localStorage.removeItem(previousKey); render();
         }
       });
