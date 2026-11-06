@@ -14,7 +14,7 @@
 
 Chuyển việc giữ nguyên dòng ngày cũ và tạo dòng mới, liên kết bằng `previous_task_id` và `chain_id`, tăng `carry_count`. Một dòng chỉ có một lần chuyển tiếp. Khóa ngoại gồm UUID người dùng ngăn liên kết sang tài khoản khác. Từ hai lần chuyển, giao diện mời viết nguyên nhân; không suy đoán cảm xúc hoặc tự gắn nhãn. Không thể xóa dòng đã có hậu duệ để bảo toàn lịch sử.
 
-Báo cáo chia số hoàn thành cho **số việc thực tế đã tạo** trong khoảng, kể cả kế hoạch ít hơn ba việc. Một việc chuyển ngày là một cam kết được ghi nhận trong từng ngày; các bản cũ chưa hoàn thành vẫn nằm trong tỷ lệ lịch sử. Danh sách còn dang dở chỉ hiển thị đầu cuối chưa hoàn thành của chuỗi để không lặp cùng việc nhiều lần. Ô “—” là chưa có kế hoạch; `0/2` là đã có hai việc, chưa hoàn thành việc nào. Ghi chép riêng không tạo mẫu số giả.
+Báo cáo chia số hoàn thành cho **số việc thực tế đã tạo** trong khoảng, kể cả kế hoạch ít hơn ba việc. Một việc chuyển ngày là một cam kết được ghi nhận trong từng ngày; các bản cũ chưa hoàn thành vẫn nằm trong tỷ lệ lịch sử. Danh sách chưa hoàn thành trong báo cáo khớp với số cam kết chưa hoàn thành trong khoảng và ghi rõ những việc đã chuyển tiếp. Danh sách gợi ý chuyển sang hôm nay và phần cần chú ý chỉ dùng đầu cuối chưa hoàn thành của chuỗi để không gợi ý lặp cùng việc. Ô “—” là chưa có kế hoạch; `0/2` là đã có hai việc, chưa hoàn thành việc nào. Ghi chép riêng không tạo mẫu số giả.
 
 `mutation_receipts` chống lặp thao tác sau mất kết nối. `notification_jobs` chống gửi trùng theo tài khoản/loại nhắc/ngày địa phương; UUID job được gửi thành `idempotency_key` cho OneSignal. Hai bảng này không có quyền đọc/ghi cho client. Lease cho phép thử lại các lần gửi bị gián đoạn; khung nhắc giới hạn để không gửi nhắc cũ nhiều giờ sau.
 
