@@ -1,6 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.119.0';
 import { identityToken, notificationContent, notificationUrl } from '../_shared/notifications.js';
 
+type NotificationJob = { id: string; user_id: string; kind: string; local_date: string };
+const errorCode = (err: unknown) => err instanceof Error ? err.message : 'unknown';
 const env = (name: string) => { const value = Deno.env.get(name); if (!value) throw Error(`Missing ${name}`); return value; };
 const json = (body: unknown, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 Deno.serve(async req => {
@@ -27,7 +29,7 @@ Deno.serve(async req => {
     }
     const appId = env('ONESIGNAL_APP_ID');
     if (action === 'identity') return json({ token: await identityToken(appId, userId, env('ONESIGNAL_IDENTITY_KEY')) }, 200, cors);
-    async function send(job: { id: string; user_id: string; kind: string; local_date: string }) {
+    async function send(job: NotificationJob) {
       if (job.kind !== 'test') {
         const { data: setting, error: settingError } = await db.from('reminder_settings').select('enabled').eq('user_id', job.user_id).eq('kind', job.kind).single();
         if (settingError) throw Error('database');
@@ -68,7 +70,7 @@ Deno.serve(async req => {
         const sent = await send(job);
         return sent ? json({ accepted: true, received: false }, 200, cors) : json({ error: 'Chưa có thiết bị nhận. Hãy cho phép thông báo, chờ đăng ký xong rồi thử lại.' }, 409, cors);
       } catch (err) {
-        await db.from('notification_jobs').update({ status: 'failed', error: err.message }).eq('id', job.id);
+        await db.from('notification_jobs').update({ status: 'failed', error: errorCode(err) }).eq('id', job.id);
         throw err;
       }
     }
@@ -77,9 +79,9 @@ Deno.serve(async req => {
       if (error) throw Error('database');
       let sent = 0, failed = 0, skipped = 0;
       for (let i = 0; i < jobs.length; i += 10) {
-        await Promise.all(jobs.slice(i, i + 10).map(async job => {
+        await Promise.all(jobs.slice(i, i + 10).map(async (job: NotificationJob) => {
           try { if (await send(job)) sent++; else skipped++; }
-          catch (err) { failed++; await db.from('notification_jobs').update({ status: 'failed', error: err.message }).eq('id', job.id); }
+          catch (err) { failed++; await db.from('notification_jobs').update({ status: 'failed', error: errorCode(err) }).eq('id', job.id); }
         }));
       }
       return json({ sent, failed, skipped }, 200, cors);

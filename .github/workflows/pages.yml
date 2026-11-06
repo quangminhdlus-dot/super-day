@@ -31,6 +31,11 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Kiểm tra Edge Function
+        run: deno check supabase/functions/reminders/index.ts
       - name: Kiểm tra logic ngày, báo cáo và thông báo
         run: npm test
       - name: Kiểm tra PostgreSQL và tách biệt tài khoản
