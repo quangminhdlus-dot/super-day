@@ -17,6 +17,22 @@ Mã MVP đã có giao diện ba màn hình, luồng Supabase Auth email/mật kh
 - [Hướng dẫn kết nối và xuất bản](docs/KET-NOI.md)
 - [Kiến trúc, dữ liệu và kiểm chứng](docs/KIEN-TRUC.md)
 
+## Giao diện tối và cỡ chữ
+
+Cả ba màn hình dùng nền tối, điểm nhấn cam và Be Vietnam Pro có đủ dấu tiếng Việt, đóng gói cục bộ để mở ngoại tuyến. Mở **Cài đặt → Giao diện & Cỡ chữ** để chọn **Nhỏ / Vừa / Lớn / Rất lớn** và xem trước ngay. Mặc định là Vừa. Cỡ chữ áp dụng cho tiêu đề, công việc, nút, ô nhập và điều hướng; thẻ tự tăng chiều cao khi nội dung dài.
+
+Lựa chọn lưu riêng theo tài khoản trong localStorage, đồng bộ qua `user_metadata.super_day_appearance` của Supabase Auth khi có mạng; bản mới hơn được ưu tiên, thay đổi ngoại tuyến được thử lại khi kết nối trở lại. Không tạo bảng hay migration và không thay đổi dữ liệu công việc, nhật ký hoặc lịch nhắc. iPhone giữ phóng to bằng hai ngón; thao tác chạm dùng `touch-action: manipulation`, ô nhập tối thiểu 16px và các nút chính tối thiểu 44px.
+
+Kiểm tra bố cục và thao tác trong trình duyệt (dữ liệu mẫu/giả lập, không chạm tài khoản thật):
+
+```sh
+npm run build
+npx playwright install chromium
+npm run test:ui
+```
+
+Bộ kiểm tra chạy trên năm chiều rộng 320–1440px với cả bốn cỡ chữ, ba màn hình, nội dung dài, tự lưu, đổi lịch nhắc và đồng bộ metadata bằng SDK Supabase. GitHub Actions chạy các kiểm tra này trước khi xuất bản. Việc nhận push thực tế vẫn cần kiểm tra trên iPhone đã cài PWA.
+
 ## Đăng nhập bằng mật khẩu với tài khoản hiện tại
 
 1. Trên máy tính đang đăng nhập, mở **Cài đặt → Thiết lập hoặc thay đổi mật khẩu**.

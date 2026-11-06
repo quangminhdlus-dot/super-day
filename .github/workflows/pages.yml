@@ -48,6 +48,16 @@ jobs:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
           ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
+      - name: Cài trình duyệt kiểm tra giao diện
+        run: npx playwright install --with-deps chromium
+      - name: Kiểm tra ba màn hình và bốn cỡ chữ
+        run: npm run test:ui
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: interface-test-results
+          path: work/ui-results
+          retention-days: 7
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -1,7 +1,7 @@
 const CACHE = 'super-day-shell-dev';
 const VERSION = 'dev';
 const ROOT = new URL('./', self.location.href);
-const SHELL = ['./', './index.html', './src/app.js', './src/styles.css', './src/lib/domain.js', './src/lib/api.js', './src/lib/auth.js', './src/lib/push.js', './vendor/supabase.js', './config.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
+const SHELL = ['./', './index.html', './src/app.js', './src/styles.css', './src/lib/domain.js', './src/lib/api.js', './src/lib/auth.js', './src/lib/appearance.js', './fonts/BeVietnamPro-Regular.woff2', './fonts/BeVietnamPro-Bold.woff2', './fonts/BeVietnamPro-ExtraBold.woff2', './src/lib/push.js', './vendor/supabase.js', './config.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL.map(p => { const url = new URL(p, ROOT); if (/\.(js|css)$/.test(url.pathname) && !url.pathname.endsWith('/config.js')) url.searchParams.set('v', VERSION); return new Request(url.href, { cache: 'reload' }); }))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('super-day-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', event => {

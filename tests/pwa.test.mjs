@@ -20,6 +20,8 @@ test('PWA caches versioned modules including password/push and activates without
   assert.ok(app.calls.urls.includes('https://example.github.io/super-day/src/lib/auth.js?v=dev'));
   assert.ok(app.calls.urls.includes('https://example.github.io/super-day/src/lib/push.js?v=dev'));
   assert.ok(app.calls.urls.includes('https://example.github.io/super-day/config.js'));
+  assert.ok(app.calls.urls.includes('https://example.github.io/super-day/src/lib/appearance.js?v=dev'));
+  for (const weight of ['Regular', 'Bold', 'ExtraBold']) assert.ok(app.calls.urls.includes(`https://example.github.io/super-day/fonts/BeVietnamPro-${weight}.woff2`));
   assert.equal(app.calls.skipped, true);
   app.handlers.get('activate')({ waitUntil(value) { pending = value; } }); await pending;
   assert.deepEqual(app.calls.deleted, ['super-day-shell-old']);
