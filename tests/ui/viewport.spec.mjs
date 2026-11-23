@@ -41,6 +41,15 @@ test('Safari gesture fallback preserves normal touch events, vertical scroll and
   const task = page.locator('[data-task="1"]');
   await task.fill('Nội dung có thể nhập và lựa chọn');
   expect(await task.evaluate(el => { el.select(); return el.value.slice(el.selectionStart, el.selectionEnd); })).toBe('Nội dung có thể nhập và lựa chọn');
+  // The streamlined Today screen may now fit within the viewport. Add
+  // long test-only content so this checks touch scrolling, not page length.
+  await page.evaluate(() => {
+    const spacer = document.createElement('div');
+    spacer.setAttribute('data-test-scroll-space', '');
+    spacer.style.height = '1200px';
+    document.querySelector('main').append(spacer);
+    window.scrollTo(0, 0);
+  });
   const client = await context.newCDPSession(page);
   await client.send('Input.synthesizeScrollGesture', { x: 380, y: 500, yDistance: -350, speed: 800, gestureSourceType: 'touch' });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
