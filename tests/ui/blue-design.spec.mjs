@@ -15,7 +15,11 @@ test('approved deep-blue navigation, borderless panels and square task check', a
 
   const input = page.locator('[data-task="1"]');
   await input.fill('Việc quan trọng hôm nay');
+  // Draft text is committed on blur; wait for its saved task before completing.
+  await input.blur();
+  await expect(page.locator('.task').first()).not.toHaveClass(/is-empty/);
   const tick = page.locator('[data-complete="1"]');
+  await expect(tick).toBeEnabled();
   await expect(tick).toHaveCSS('border-top-left-radius', '0px');
   const before = await tick.evaluate(el => {
     const s = getComputedStyle(el, '::before');
