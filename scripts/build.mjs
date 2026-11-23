@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import './generate-blue-icons.mjs';
 import { cp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 // Bundle the official Supabase SDK locally so the installed PWA can load it offline.
 let local = {};
