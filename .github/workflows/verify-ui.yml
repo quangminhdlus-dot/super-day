@@ -1,0 +1,33 @@
+name: Kiểm tra thiết kế Super Day trước khi xuất bản
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Kiểm tra nghiệp vụ và thông báo
+        run: npm test
+      - name: Kiểm tra cơ sở dữ liệu giả lập độc lập
+        run: npm run test:db
+      - name: Tạo bản giao diện và biểu tượng mới
+        run: npm run build
+      - name: Kiểm tra Chrome
+        run: google-chrome --version
+      - name: Kiểm tra giao diện iPhone và máy tính
+        run: npm run test:ui
+        env:
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: super-day-design-test-results
+          path: work/ui-results
+          retention-days: 7
