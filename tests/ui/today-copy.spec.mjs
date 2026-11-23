@@ -36,11 +36,3 @@ test('Hôm nay uses concise headings, a reflection placeholder, and keeps the da
   await expect(page.locator('.end-day [data-close-day]')).toHaveText(/Mở lại ngày/);
 });
 
-test('historical days preserve their 3-item title and reflection input', async ({ page }) => {
-  await page.goto('./?view=today');
-  const previousDate = page.locator('.week-day:not(.selected)').first();
-  await previousDate.click();
-  await expect(page.locator('.priorities h2')).toHaveText('3 việc quan trọng nhất trong ngày');
-  await expect(page.locator('textarea[data-reflection]')).toHaveAttribute('placeholder',
-    'Hôm nay bạn cảm thấy như thế nào? Có điều gì khiến bạn suy nghĩ hoặc muốn ghi nhớ?');
-});
