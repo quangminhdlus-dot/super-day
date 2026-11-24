@@ -464,3 +464,76 @@ select:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{
 .toggle.on>span{background:var(--accent-ink);}
 .attention-note,.notice,.leftovers-card,.push-error{border-color:transparent;}
 @media(prefers-reduced-motion:reduce){.task-check::before{transition:none;}}
+
+/* Voice recording for "Một chút nhìn lại": small microphone inside textarea. */
+.reflection-input-wrap{position:relative;margin-top:16px}
+.reflection-input-wrap textarea{margin-top:0;padding-bottom:65px;min-height:190px}
+.reflection-mic-button{
+  position:absolute;right:12px;bottom:12px;width:46px;height:46px;
+  display:flex;align-items:center;justify-content:center;border:1px solid #294F89;
+  border-radius:13px;background:#172C50;color:var(--accent-readable);
+  box-shadow:0 2px 10px #0002;
+}
+.reflection-mic-button .icon{width:23px;height:23px}
+.reflection-mic-button:hover,.reflection-mic-button:focus-visible{background:#204272}
+#reflection-voice-dialog{
+  width:min(388px,calc(100vw - 28px));max-height:calc(100dvh - 36px);
+  padding:22px 20px 24px;background:var(--surface);color:var(--ink);
+  border:1px solid var(--line);border-radius:23px;text-align:center;overflow:auto;
+  box-shadow:0 25px 70px #0008;
+}
+#reflection-voice-dialog::backdrop{background:#000b;backdrop-filter:blur(4px)}
+#reflection-voice-dialog [hidden]{display:none!important}
+#reflection-voice-dialog .rv-heading h2{font-size:19px;font-weight:700}
+#reflection-voice-dialog .rv-recording{display:flex;flex-direction:column;align-items:center}
+#reflection-voice-dialog .rv-orbit{
+  width:184px;height:158px;display:grid;place-items:center;position:relative;
+}
+#reflection-voice-dialog .rv-orbit-ring{
+  position:absolute;width:122px;height:122px;border:1px solid #41649B;
+  border-radius:50%;box-shadow:0 0 0 15px #0866ff0d,0 0 0 32px #0866ff06;
+}
+#reflection-voice-dialog[data-phase="recording"] .rv-orbit-ring{animation:rv-pulse 1.8s ease-in-out infinite}
+#reflection-voice-dialog .rv-mic{
+  width:78px;height:78px;border-radius:50%;background:#123766;
+  display:flex;align-items:center;justify-content:center;color:#A7D0FF;
+}
+#reflection-voice-dialog .rv-mic svg{width:35px;height:35px}
+#reflection-voice-dialog .rv-clock{font-size:20px;font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
+#reflection-voice-dialog .rv-controls{display:flex;align-items:center;justify-content:center;gap:32px;margin-top:22px}
+#reflection-voice-dialog .rv-controls button{
+  width:56px;height:56px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--surface-raised);border:1px solid var(--line);
+}
+#reflection-voice-dialog .rv-controls [data-rv="discard"]{color:#F08B88}
+#reflection-voice-dialog .rv-controls [data-rv="send"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+#reflection-voice-dialog .rv-controls [data-rv="pause"]{color:#fff}
+#reflection-voice-dialog .rv-message{margin-top:14px;font-size:var(--text-sm);color:var(--muted);line-height:1.6}
+#reflection-voice-dialog .rv-message:empty{display:none}
+#reflection-voice-dialog .rv-retry{margin:14px auto 0;padding:10px 20px;border-radius:12px;background:var(--accent);color:#fff}
+#reflection-voice-dialog .rv-processing{
+  width:64px;height:64px;position:relative;display:grid;place-items:center;
+  margin:auto;color:var(--accent-readable);
+}
+#reflection-voice-dialog .rv-processing svg{width:30px;height:30px}
+#reflection-voice-dialog .rv-spinner{
+  position:absolute;inset:0;border:2px solid transparent;
+  border-top-color:currentColor;border-right-color:currentColor;border-radius:50%;
+  animation:rv-spin 1s linear infinite;
+}
+#reflection-voice-dialog[data-phase="processing"]{
+  width:104px;min-height:104px;padding:20px;border:0;border-radius:24px;overflow:hidden;
+}
+#reflection-voice-dialog[data-phase="processing"] .rv-heading,
+#reflection-voice-dialog[data-phase="processing"] .rv-recording,
+#reflection-voice-dialog[data-phase="processing"] .rv-message,
+#reflection-voice-dialog[data-phase="processing"] .rv-retry{display:none!important}
+#reflection-voice-dialog[data-phase="error"] .rv-heading,
+#reflection-voice-dialog[data-phase="error"] .rv-recording{display:none!important}
+#reflection-voice-dialog[data-phase="error"] .rv-message{margin-top:0}
+@keyframes rv-spin{to{transform:rotate(360deg)}}
+@keyframes rv-pulse{50%{box-shadow:0 0 0 21px #0866ff14,0 0 0 36px #0866ff06}}
+@media(prefers-reduced-motion:reduce){
+  #reflection-voice-dialog .rv-spinner{animation-duration:3s}
+  #reflection-voice-dialog .rv-orbit-ring{animation:none!important}
+}
