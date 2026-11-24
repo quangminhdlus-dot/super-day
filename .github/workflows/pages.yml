@@ -48,6 +48,7 @@ jobs:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
           ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
+          VOICE_API_URL: ${{ vars.VOICE_API_URL }}
       - name: Kiểm tra Chrome có sẵn trên runner
         run: google-chrome --version
       - name: Kiểm tra ba màn hình và ba cỡ chữ
