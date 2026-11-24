@@ -4,6 +4,7 @@ import { FONT_OPTIONS, readAppearance, storeAppearance, applyAppearance, saveAcc
 import { signInPassword, changePassword, needsPasswordReauth, passwordErrorMessage } from './lib/auth.js';
 import { preparePush, detachPush, inspectPush, registerPush, observePush, pushStateLabel, describePushError } from './lib/push.js';
 import { installViewportGuard } from './lib/viewport.js';
+import { createReflectionRecorder, mergeReflection } from './lib/reflection-voice.js';
 
 installViewportGuard(document);
 
@@ -19,6 +20,7 @@ const paths = {
   download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>', logout: '<path d="M9 3H4v18h5m5-14 5 5-5 5M9 12h10"/>',
   cloud: '<path d="M7 18a5 5 0 1 1 1-10 6 6 0 0 1 11 3 4 4 0 0 1-1 8H7Z"/>', plus: '<path d="M12 5v14M5 12h14"/>',
   type: '<path d="M4 5h16M12 5v16M8 21h8M3 12h5m-2.5 0v9"/>', target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  mic: '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/>',
   moon: '<path d="M20 14A9 9 0 0 1 10 3a9 9 0 1 0 10 11Z"/>', heart: '<path d="M20 5c-4-4-8 1-8 1S8 1 4 5s0 9 8 15c8-6 12-11 8-15Z"/>'
 };
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.sun}</svg>`;
@@ -99,7 +101,7 @@ function dailyEditor(date, historical = false) {
       const t = tasks.find(x => x.slot === slot), moved = t && children.get(t.id);
       return `<div class="task ${t?.completed ? 'is-complete' : ''} ${!t ? 'is-empty' : ''}"><div class="task-main"><button class="task-check" data-complete="${slot}" data-edit-date="${date}" aria-label="${t?.completed ? 'Bỏ đánh dấu' : 'Hoàn thành'} việc ${slot}" aria-pressed="${!!t?.completed}" ${!t ? 'disabled' : ''}>${t?.completed ? icon('check') : ''}</button><div class="task-content"><label for="task-${date}-${slot}" class="sr-only">Việc quan trọng ${slot}</label><textarea id="task-${date}-${slot}" data-task="${slot}" data-edit-date="${date}" rows="1" maxlength="500" autocomplete="off" placeholder="${['Việc quan trọng nhất hôm nay', 'Ưu tiên thứ hai của bạn', 'Điều tiếp theo cần hoàn thành'][slot - 1]}">${e(t?.title)}</textarea><div class="task-meta"><span>Ưu tiên 0${slot}</span>${t?.completed ? `<span class="complete-label">${icon('check')} Đã hoàn thành</span>` : moved ? `<button class="inline-link" data-open-day="${moved.date}">Đã chuyển đến ${e(dateLabel(moved.date, { month: 'numeric' }))} ${icon('arrow')}</button>` : t?.carry_count ? `<span class="carry-label">Đã chuyển ${t.carry_count} lần</span>` : ''}</div></div><span class="task-number">0${slot}</span></div>${t && t.carry_count >= 2 && !t.completed ? `<div class="attention-note">${icon('leaf')}<div><p>Công việc này đã được chuyển sang ngày khác nhiều lần. Điều gì đang khiến bạn chưa thực hiện được?</p><label class="sr-only" for="reason-${t.id}">Điều khiến bạn chưa thực hiện</label><textarea id="reason-${t.id}" data-reason="${slot}" data-edit-date="${date}" rows="2" maxlength="5000" placeholder="Điều gì đang khiến bạn chưa bắt đầu?">${e(t.reason)}</textarea></div></div>` : ''}${t && !t.completed && !moved && date < today() ? `<button class="carry-button" data-carry="${t.id}">Chuyển sang hôm nay ${icon('arrow')}</button>` : ''}</div>`;
     }).join('')}</div><div class="progress-summary"><span>${st.done === 3 ? 'Ba điều quan trọng đã được hoàn thành.' : st.done ? 'Từng bước nhỏ, một ngày có ý nghĩa.' : 'Bắt đầu bằng một điều quan trọng.'}</span><strong>${st.done}<span>/3 việc</span></strong></div><div class="progress-track" role="progressbar" aria-label="Tiến độ ba việc" aria-valuenow="${st.done}" aria-valuemin="0" aria-valuemax="3"><span style="width:${st.done / 3 * 100}%"></span></div></section>
-    <section class="reflection panel" id="reflection"><div class="section-top"><div class="section-title-icon">${icon('book')}<h2>Một chút nhìn lại</h2></div><span class="optional">Tùy bạn</span></div><label class="sr-only" for="reflection-${date}">Ghi chép ngày ${date}</label><textarea id="reflection-${date}" data-reflection="${date}" maxlength="100000" placeholder="Hôm nay bạn cảm thấy như thế nào? Có điều gì khiến bạn suy nghĩ hoặc muốn ghi nhớ?">${e(day.reflection)}</textarea><div class="reflection-bottom"><span>${icon('cloud')} Tự động lưu khi bạn viết</span><span>${(day.reflection || '').length.toLocaleString('vi-VN')} ký tự</span></div></section>
+    <section class="reflection panel" id="reflection"><div class="section-top"><div class="section-title-icon">${icon('book')}<h2>Một chút nhìn lại</h2></div><span class="optional">Tùy bạn</span></div><label class="sr-only" for="reflection-${date}">Ghi chép ngày ${date}</label><div class="reflection-input-wrap"><textarea id="reflection-${date}" data-reflection="${date}" maxlength="100000" placeholder="Hôm nay bạn cảm thấy như thế nào? Có điều gì khiến bạn suy nghĩ hoặc muốn ghi nhớ?">${e(day.reflection)}</textarea><button type="button" class="reflection-mic-button" data-reflection-record="${date}" aria-label="Ghi âm một chút nhìn lại" title="Ghi âm">${icon("mic")}</button></div><div class="reflection-bottom"><span>${icon('cloud')} Tự động lưu khi bạn viết</span><span>${(day.reflection || '').length.toLocaleString('vi-VN')} ký tự</span></div></section>
     <div class="end-day"><button class="secondary-button" data-close-day="${date}">${day.closed_at ? 'Mở lại ngày' : 'Khép lại ngày'} ${icon(day.closed_at ? 'sun' : 'check')}</button></div>`;
 }
 function todayPage() {
@@ -334,6 +336,58 @@ async function handleAction(action) {
     const db = await getClient(); const { error } = await db.auth.signOut({ scope: 'local' }); if (error) toast('Chưa đăng xuất được. Hãy thử lại.');
   }
 }
+// Use the same authenticated voice backend as Super Content, never expose an AI key.
+const reflectionRecorder = createReflectionRecorder({
+  baseUrl: config.voiceApiUrl || 'https://super-content-ap86.onrender.com',
+  authorize: async () => {
+    if (state.demo || !state.user) throw Error('Đăng nhập để chuyển ghi âm thành văn bản.');
+    const db = await getClient();
+    const { data, error } = await db.auth.getSession();
+    if (error || !data.session) throw Error('Phiên đăng nhập chưa sẵn sàng. Hãy đăng nhập lại.');
+    return data.session.access_token;
+  },
+  capture: () => {
+    const date = state.selectedDate || today();
+    const textarea = document.getElementById('reflection-' + date);
+    if (!textarea) throw Error('Không tìm thấy ô Một chút nhìn lại.');
+    return {
+      date, owner: state.demo ? 'demo' : state.user?.id,
+      base: textarea.value,
+      cursor: textarea.selectionStart ?? textarea.value.length,
+    };
+  },
+  save: async ({ capture, text, mode, checkpoint }) => {
+    const owner = state.demo ? 'demo' : state.user?.id;
+    if (capture.owner !== owner) throw Error('Tài khoản đã thay đổi. Không ghi đè dữ liệu của người khác.');
+    const day = state.data.days.find(d => d.date === capture.date);
+    const current = day?.reflection || '';
+    let value, position;
+    if (mode === 'initial') {
+      const safeCursor = current === capture.base ? capture.cursor : current.length;
+      const merged = mergeReflection(current, text, safeCursor);
+      value = merged.value;
+      position = merged.start;
+    } else if (mode === 'polish') {
+      if (!checkpoint || current.slice(checkpoint.start, checkpoint.start + checkpoint.original.length) !== checkpoint.original)
+        return checkpoint; // A concurrent edit takes precedence over optional polishing.
+      value = current.slice(0, checkpoint.start) + text + current.slice(checkpoint.start + checkpoint.original.length);
+      position = checkpoint.start;
+    } else throw Error('Bước lưu ghi âm không hợp lệ.');
+    if (value.length > 100000) throw Error('Ghi chép đã đạt giới hạn ký tự. Hãy rút ngắn bản ghi.');
+    if (value !== current) queue('day', {
+      date: capture.date, patch: { reflection: value }, expected: { reflection: current },
+    }, false);
+    // Keep the visible textarea and its character counter in sync without replacing the editor DOM.
+    const input = document.getElementById('reflection-' + capture.date);
+    if (input && (!textDrafts.has(input.id))) {
+      input.value = value;
+      const counter = input.closest('.reflection')?.querySelector('.reflection-bottom>span:last-child');
+      if (counter) counter.textContent = value.length.toLocaleString('vi-VN') + ' ký tự';
+    }
+    return mode === 'initial' ? { start: position, original: text } : checkpoint;
+  },
+});
+
 // Commit text after a short pause; flush when leaving a field. Expected field values protect edits on another device.
 const textTimers = new Map();
 const textDrafts = new Map();
@@ -434,6 +488,11 @@ document.addEventListener('click', async event => {
   const timeInput = editingReminderTime()?.element;
   if (timeInput) { finishReminderTime(timeInput); timeInput.blur(); }
   if (el.dataset.reminderDone) return;
+  if (el.dataset.reflectionRecord) {
+    if (state.demo) { toast('Đăng nhập để sử dụng ghi âm và chuyển thành văn bản.'); return; }
+    try { await reflectionRecorder.open(); } catch (error) { toast(error.message || 'Chưa mở được micro.'); }
+    return;
+  }
   if (el.hasAttribute('data-dialog-close')) { dialog.close(); return; }
   if (el.dataset.fontSize) { chooseFontSize(el.dataset.fontSize); return; }
   if (el.dataset.nav) navigate(el.dataset.nav);

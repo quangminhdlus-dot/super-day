@@ -11,7 +11,7 @@ try {
 } catch { /* .env is optional. */ }
 const value = key => process.env[key] ?? local[key] ?? '';
 const version = process.env.GITHUB_SHA?.slice(0, 12) || String(Date.now());
-const config = { supabaseUrl: value('SUPABASE_URL'), supabaseAnonKey: value('SUPABASE_ANON_KEY'), oneSignalAppId: value('ONESIGNAL_APP_ID') };
+const config = { supabaseUrl: value('SUPABASE_URL'), supabaseAnonKey: value('SUPABASE_ANON_KEY'), oneSignalAppId: value('ONESIGNAL_APP_ID'), voiceApiUrl: value('VOICE_API_URL') || 'https://super-content-ap86.onrender.com' };
 if (config.supabaseAnonKey.startsWith('sb_secret_')) throw new Error('Chỉ được dùng publishable/anon key ở giao diện.');
 try { const claims = JSON.parse(Buffer.from(config.supabaseAnonKey.split('.')[1], 'base64url')); if (claims.role === 'service_role') throw new Error('SECRET_KEY'); }
 catch (e) { if (e.message === 'SECRET_KEY') throw new Error('Không đưa service_role key vào giao diện.'); }
