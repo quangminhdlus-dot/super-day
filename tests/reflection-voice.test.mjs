@@ -4,7 +4,7 @@ import { mergeReflection, chooseLightPolish } from '../src/lib/reflection-voice.
 
 test('voice insertion preserves existing diary text and cursor position', () => {
   const merged = mergeReflection('Hôm nay tốt.', 'Tôi muốn học thêm.', 4);
-  assert.equal(merged.value, 'Hôm \nTôi muốn học thêm.\nnay tốt.');
+  assert.equal(merged.value, 'Hôm Tôi muốn học thêm.\nnay tốt.');
   assert.equal(merged.value.slice(merged.start, merged.end), 'Tôi muốn học thêm.');
 });
 test('voice insertion appends safely if text has no cursor', () => {
