@@ -29,7 +29,7 @@ async function checkLayout(page) {
   });
   expect(issues).toEqual([]);
 }
-for (const width of [320, 390, 430, 768, 1440]) {
+for (const width of [320, 390, 430, 440, 768, 1440]) {
   test(`Three screens fit at ${width}px in all three font sizes`, async ({ page }, _testInfo) => {
     await page.setViewportSize({ width, height: width >= 1024 ? 1000 : 844 });
     await page.goto('./');

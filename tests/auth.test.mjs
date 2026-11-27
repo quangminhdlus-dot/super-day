@@ -10,7 +10,7 @@ import { installViewportGuard } from '../src/lib/viewport.js';
 import { mergeReflection } from '../src/lib/reflection-voice.js';
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 15));
-const source = (await readFile(new URL('../src/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '').replaceAll('import.meta.url', JSON.stringify('https://example.test/super-day/src/app.js'));
+const source = (await readFile(new URL('../src/app.js', import.meta.url), 'utf8')).replace(/^import .*;\r?\n/gm, '').replaceAll('import.meta.url', JSON.stringify('https://example.test/super-day/src/app.js'));
 
 // Run the real app event handlers against a small DOM facade. This is not a visual/browser test.
 async function appHarness({ signedIn = false, pushEnabled = false } = {}) {

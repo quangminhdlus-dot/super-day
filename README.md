@@ -17,9 +17,9 @@ Mã MVP đã có giao diện ba màn hình, luồng Supabase Auth email/mật kh
 - [Hướng dẫn kết nối và xuất bản](docs/KET-NOI.md)
 - [Kiến trúc, dữ liệu và kiểm chứng](docs/KIEN-TRUC.md)
 
-## Giao diện tối và cỡ chữ
+## Giao diện sáng và cỡ chữ
 
-Cả ba màn hình dùng nền tối, điểm nhấn cam và Be Vietnam Pro có đủ dấu tiếng Việt, đóng gói cục bộ để mở ngoại tuyến. Mở **Cài đặt → Cỡ chữ** để chọn **Nhỏ / Trung bình / Lớn**, áp dụng ngay trên giao diện. Mặc định cho tài khoản mới là Trung bình; lựa chọn Rất lớn cũ được đọc thành Lớn, giữ nguyên thời điểm lưu và trạng thái đồng bộ. Cỡ chữ áp dụng cho tiêu đề, công việc, nút, ô nhập và điều hướng; thẻ tự tăng chiều cao khi nội dung dài.
+Cả ba màn hình dùng nền trắng ngà, điểm nhấn xanh lá và Be Vietnam Pro có đủ dấu tiếng Việt, đóng gói cục bộ để mở ngoại tuyến. Mỗi ngày trang Hôm nay chọn một ảnh theo ngày của tài khoản từ thư viện đóng gói cùng ứng dụng. Mục **Về nơi này** dẫn nguồn địa danh, tác giả và giấy phép. Mở **Cài đặt → Cỡ chữ** để chọn **Nhỏ / Trung bình / Lớn**, áp dụng ngay trên giao diện. Mặc định cho tài khoản mới là Trung bình; lựa chọn Rất lớn cũ được đọc thành Lớn, giữ nguyên thời điểm lưu và trạng thái đồng bộ. Cỡ chữ áp dụng cho tiêu đề, công việc, nút, ô nhập và điều hướng; thẻ tự tăng chiều cao khi nội dung dài.
 
 Lựa chọn lưu riêng theo tài khoản trong localStorage, đồng bộ qua `user_metadata.super_day_appearance` của Supabase Auth khi có mạng; bản mới hơn được ưu tiên, thay đổi ngoại tuyến được thử lại khi kết nối trở lại. Không tạo bảng hay migration và không thay đổi dữ liệu công việc, nhật ký hoặc lịch nhắc. Ô nhập tối thiểu 16px và các nút chính tối thiểu 44px.
 

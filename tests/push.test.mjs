@@ -6,7 +6,7 @@ import { transform } from 'esbuild';
 import { notificationContent, notificationUrl } from '../supabase/functions/_shared/notifications.js';
 
 const pushSource = (await readFile(new URL('../src/lib/push.js', import.meta.url), 'utf8'))
-  .replace(/^import .*;\n/gm, '').replace(/^export /gm, '')
+  .replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '')
   .replaceAll('import.meta.url', JSON.stringify('https://example.github.io/super-day/src/lib/push.js?v=test-release'));
 const workerSource = await readFile(new URL('../public/push/OneSignalSDKWorker.js', import.meta.url), 'utf8');
 function events() {
@@ -153,7 +153,7 @@ test('A registration attempt cannot relink a device after the Supabase account c
   assert.equal(app.calls.login.length, 1);
 });
 
-const edgeSource = (await readFile(new URL('../supabase/functions/reminders/index.ts', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
+const edgeSource = (await readFile(new URL('../supabase/functions/reminders/index.ts', import.meta.url), 'utf8')).replace(/^import .*;\r?\n/gm, '');
 const { code: edgeCode } = await transform(edgeSource, { loader: 'ts', target: 'es2022' });
 function serverHarness({ valid = true, confirmed = true } = {}) {
   const userId = '11111111-1111-4111-8111-111111111111';

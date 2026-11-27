@@ -12,5 +12,5 @@ export default defineConfig({
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {},
     screenshot: 'only-on-failure',
   },
-  webServer: { command: 'PORT=4180 node scripts/serve.mjs dist', url: 'http://127.0.0.1:4180/super-day/', reuseExistingServer: !process.env.CI },
+  webServer: { command: 'node scripts/serve.mjs dist', env: { PORT: '4180' }, url: 'http://127.0.0.1:4180/super-day/', reuseExistingServer: !process.env.CI },
 });
