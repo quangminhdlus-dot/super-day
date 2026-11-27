@@ -14,7 +14,7 @@ test('Hôm nay uses concise headings, a reflection placeholder, and keeps the da
   await expect(page.locator('.page-heading')).not.toContainText(/Chào buổi (sáng|trưa|chiều|tối)/);
   await expect(page.locator('.page-heading')).not.toContainText('Chọn đúng việc. Làm đến cùng.');
   await expect(page.locator('.sidebar-note')).toHaveCount(0);
-  await expect(page.locator('.priorities h2')).toHaveText('3 việc quan trọng nhất hôm nay');
+  await expect(page.locator('.priorities h2')).toHaveText('3 việc quan trọng');
   await expect(page.locator('.priorities')).not.toContainText('Ưu tiên của bạn');
 
   await expect(page.locator('.reflection h2')).toHaveText('Một chút nhìn lại');
