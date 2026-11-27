@@ -704,3 +704,120 @@ main { max-width: 1176px; padding-top: 18px; }
   .task { padding-block: 2px; }
   .task-main { align-items: start; }
 }
+
+
+/* The daily opening lives above the existing app in the dialog top layer. */
+html.has-daily-opening { overflow: hidden; overscroll-behavior: none; }
+
+.daily-opening {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: #263341;
+  color: #fffaf1;
+  text-align: center;
+  box-shadow: none;
+  overscroll-behavior: none;
+}
+.daily-opening::backdrop { background: transparent; backdrop-filter: none; }
+.daily-opening [hidden] { display: none; }
+
+.opening-surface {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  display: block;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+.opening-surface:active:not(:disabled) { transform: none; }
+.opening-surface:focus-visible { outline: 2px solid #fffaf1; outline-offset: -5px; }
+.opening-photo, .opening-shade, .opening-fragments {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.opening-photo { object-fit: cover; pointer-events: none; }
+.opening-shade {
+  background:
+    radial-gradient(ellipse at 50% 22%, #17202d32 0%, transparent 75%),
+    linear-gradient(180deg, #131b2c91, #171e2e47 37%, transparent 66%, #18191f28);
+  pointer-events: none;
+}
+.opening-fragments { pointer-events: none; }
+.opening-copy {
+  position: relative;
+  width: 100%;
+  padding: max(env(safe-area-inset-top), clamp(55px, 12dvh, 178px)) max(18px, env(safe-area-inset-right)) 20px max(18px, env(safe-area-inset-left));
+  pointer-events: none;
+  text-shadow: 0 2px 12px #101720a0;
+}
+.opening-copy h1 {
+  width: min(100%, 14em);
+  margin: 0 auto;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: clamp(37px, 13.4vw, 110px);
+  line-height: 1.03;
+  font-weight: 400;
+  letter-spacing: -.055em;
+  text-wrap: balance;
+}
+.opening-country {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 10px 0 12px;
+  font: italic clamp(20px, 5.4vw, 34px) / 1.3 Georgia, 'Times New Roman', serif;
+  letter-spacing: .03em;
+}
+.opening-country::before, .opening-country::after {
+  content: '';
+  width: clamp(19px, 7vw, 42px);
+  border-top: 1px solid #fffaf1a0;
+}
+.opening-address { font-size: clamp(13px, 3.5vw, 16px); line-height: 1.4; }
+.opening-keywords {
+  margin: 16px auto 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.opening-keywords li {
+  padding: 5px 10px;
+  border: 1px solid #fffaf185;
+  border-radius: 999px;
+  font-size: clamp(11px, 2.9vw, 13px);
+  line-height: 1.3;
+  background: #1b21322a;
+}
+.daily-opening.opening-is-breaking,
+.daily-opening.opening-is-breaking .opening-surface { background: transparent; }
+.daily-opening.opening-is-breaking .opening-surface { visibility: hidden; }
+.daily-opening.opening-is-breaking .opening-shade,
+.daily-opening.opening-is-breaking .opening-copy { animation: opening-text-out 180ms ease-out both; }
+@keyframes opening-text-out { to { opacity: 0; } }
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .opening-copy { padding-top: max(24px, env(safe-area-inset-top)); }
+  .opening-copy h1 { font-size: clamp(33px, 11dvh, 58px); }
+  .opening-country { margin-block: 4px 7px; }
+  .opening-keywords { margin-top: 9px; }
+}

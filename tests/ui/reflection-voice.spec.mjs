@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './existing-app.mjs';
 
 test('daily reflection keeps mic in the lower right corner and does not replace typed text', async ({ page }) => {
   await page.goto('./');
