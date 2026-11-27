@@ -5,6 +5,7 @@ import { signInPassword, changePassword, needsPasswordReauth, passwordErrorMessa
 import { preparePush, detachPush, inspectPush, registerPush, observePush, pushStateLabel, describePushError } from './lib/push.js';
 import { installViewportGuard } from './lib/viewport.js';
 import { createReflectionRecorder, mergeReflection } from './lib/reflection-voice.js';
+import { createDailyOpening } from './lib/daily-opening.js';
 
 installViewportGuard(document);
 
@@ -39,6 +40,24 @@ let reminderTimeEdit = null, renderAfterTimeEdit = false;
 let reminderTimePointerOwner = null;
 const storageKey = () => `super-day:account:${state.user?.id}`;
 const today = () => localDate(new Date(), state.data.profile.timezone || DEFAULT_ZONE);
+const opening = createDailyOpening({
+  background: app,
+  getContext() {
+    const missingAccountCache = state.syncError && state.user && !read(storageKey(), null)?.data;
+    if (state.booting || state.loading || state.authError || missingAccountCache ||
+      state.view !== 'today' || state.selectedDate || dialog.open ||
+      new URL(location.href).searchParams.has('focus')) return null;
+    return { account: state.user?.id ? 'account:' + state.user.id : 'demo', date: today() };
+  },
+  enterToday() {
+    render();
+    window.scrollTo(0, 0);
+    const heading = app.querySelector('.greeting-name');
+    heading?.setAttribute('tabindex', '-1');
+    heading?.focus({ preventScroll: true });
+  },
+});
+
 function toast(message) { const t = document.querySelector('#toast'); t.textContent = message; t.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('visible'), 5000); }
 function saveLocal() { if (state.demo) persist('super-day:demo:v1', state.data); else persist(storageKey(), { data: state.data, outbox: state.outbox }); }
 function formatTime() { return new Intl.DateTimeFormat('vi-VN', { timeZone: state.data.profile.timezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()); }
@@ -274,6 +293,7 @@ function chooseFontSize(fontSize) {
   applyAppearance(document.documentElement, state.appearance); render(); syncAppearance();
 }
 function render() {
+  opening.reconcile();
   // A native iOS picker belongs to its input DOM node. Replacing that node closes
   // the picker even if focus is restored afterwards. Apply background UI changes
   // only after this edit ends; account changes must still replace private content.
@@ -629,7 +649,7 @@ async function enterAccount(user) {
   stopPushObservation?.(); stopPushObservation = null; ++pushInspection;
   state.user = user; receiveAppearance(user); state.demo = false; state.syncError = ''; state.push = null; state.pushInfo = null; state.pushError = ''; state.pushBusy = false; state.pushSending = false; state.pushStatus = 'Đang chuẩn bị kết nối…';
   const cached = read(storageKey(), null); state.data = cached?.data || blankData(); state.outbox = cached?.outbox || []; state.loading = !cached; render();
-  await refresh(); state.loading = false; state.booting = false; render(); syncAppearance();
+  await refresh(); state.loading = false; state.booting = false; render(); opening.show(); syncAppearance();
   if (config.oneSignalAppId) {
     try { await connectPush(user.id); if (state.user?.id !== user.id) return; state.pushStatus = pushStateLabel(state.pushInfo); }
     catch (error) { if (state.user?.id === user.id) { state.pushStatus = 'Chưa chuẩn bị được đăng ký thông báo'; state.pushError = describePushError(error); } }
@@ -667,6 +687,7 @@ async function boot() {
     } catch { state.authError = 'Chưa kiểm tra được phiên đăng nhập. Hãy kiểm tra kết nối và tải lại trang.'; }
     state.booting = false; render();
   }
+  opening.show();
 }
 window.addEventListener('online', async () => { if (!state.syncError.includes('CONFLICT')) state.syncError = ''; await flush(); await refresh(); syncAppearance(); render(); });
 window.addEventListener('focus', () => refresh());
@@ -677,7 +698,12 @@ document.addEventListener('error', event => {
   event.target.hidden = true;
   event.target.previousElementSibling.hidden = false;
 }, true);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); } else refresh(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); }
+  else { opening.reconcile(); opening.show(); refresh(); }
+});
+window.addEventListener('pageshow', event => { if (event.persisted) { opening.reconcile(); opening.show(); } });
+window.addEventListener('storage', opening.onStorage);
 setInterval(() => {
   const clock = document.querySelector('#clock'); if (clock) clock.textContent = formatTime();
   if (today() !== lastDate) { flushAllText(); state.selectedDate = null; lastDate = today(); render(); }

@@ -1,0 +1,58 @@
+Super Day — Daily opening photographs
+The assets remain under the original licenses listed below. The photographs are resized, encoded as WebP, and cropped to cover the viewport when presented.
+
+Santorini · Hy Lạp
+File: photos/opening/santorini.webp
+Photo by: Aurora Song
+Original: https://unsplash.com/photos/white-buildings-with-blue-domes-overlook-the-sea-3wNnVgWZLbI
+License: https://unsplash.com/license
+Place information: https://www.visitgreece.gr/en/routes/santorini-sunset-overlooking-the-caldera
+
+Aoraki · New Zealand
+File: photos/aoraki.webp
+Photo by: A S
+Original: https://commons.wikimedia.org/wiki/File:Hooker_Lake.jpg
+License: https://creativecommons.org/licenses/by/2.0/
+Place information: https://www.doc.govt.nz/parks-and-recreation/places-to-go/canterbury/places/aoraki-mount-cook-national-park/
+
+Machu Picchu · Peru
+File: photos/opening/machu-picchu.webp
+Photo by: Pedro Szekely
+Original: https://commons.wikimedia.org/wiki/File:Machu_Picchu,_Peru.jpg
+License: https://creativecommons.org/licenses/by-sa/2.0/
+Place information: https://whc.unesco.org/en/list/274/
+
+Petra · Jordan
+File: photos/opening/petra.webp
+Photo by: David Bjorgen; perspective correction by Massimo Catarinella
+Original: https://commons.wikimedia.org/wiki/File:PetraJordan.jpg
+License: https://creativecommons.org/licenses/by-sa/2.5/
+Place information: https://whc.unesco.org/en/list/326/
+
+Núi Phú Sĩ · Nhật Bản
+File: photos/opening/fuji.webp
+Photo by: Supanut Arunoprayote
+Original: https://commons.wikimedia.org/wiki/File:Chureito_Pagoda_and_Mount_Fuji_20241022.jpg
+License: https://creativecommons.org/licenses/by/4.0/
+Place information: https://whc.unesco.org/en/list/1418/
+
+Hồ Moraine · Canada
+File: photos/opening/moraine.webp
+Photo by: Jakub Fryš
+Original: https://commons.wikimedia.org/wiki/File:Moraine_Lake_sunrise.jpg
+License: https://creativecommons.org/licenses/by-sa/4.0/
+Place information: https://parks.canada.ca/pn-np/ab/banff/activ/~/~/~/link.aspx?_id=8E827CA789664D99BB5DA22EBF279BE3&_z=z
+
+Mont Saint-Michel · Pháp
+File: photos/opening/mont-saint-michel.webp
+Photo by: Lubosz
+Original: https://commons.wikimedia.org/wiki/File:Mont-Saint-Michel-At-Night.jpg
+License: https://creativecommons.org/licenses/by-sa/3.0/
+Place information: https://whc.unesco.org/en/list/80/
+
+Grand Teton · Hoa Kỳ
+File: photos/grand-teton.webp
+Photo by: Scott Horvath / USGS
+Original: https://www.usgs.gov/media/images/grand-tetons
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Place information: https://www.usgs.gov/media/images/grand-tetons

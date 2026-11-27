@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './existing-app.mjs';
 import { demoData } from '../../src/lib/domain.js';
 
 test.beforeEach(async ({ page }) => {

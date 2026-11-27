@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './existing-app.mjs';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/config.js', route => route.fulfill({
