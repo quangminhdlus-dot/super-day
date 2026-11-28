@@ -98,7 +98,7 @@ test('reduced motion goes straight to Today and a failed photograph never blocks
   expect(await page.evaluate(key => localStorage.getItem(key), marker + 'demo:2026-11-29')).toBeNull();
 });
 
-test('account timezone and seen state remain separate after logout and sign-in', async ({ page }) => {
+test('the Vietnam date and separate account markers survive logout and sign-in', async ({ page }) => {
   const user = { id: '00000000-0000-4000-8000-000000000009', aud: 'authenticated', role: 'authenticated', email: 'owner@example.test', user_metadata: {}, app_metadata: {} };
   const validUntil = Math.floor(firstDay.valueOf() / 1000) + 7200;
   const token = ['eyJhbGciOiJIUzI1NiJ9', Buffer.from(JSON.stringify({ sub: user.id, exp: validUntil })).toString('base64url'), 'fixture'].join('.');
@@ -126,11 +126,11 @@ test('account timezone and seen state remain separate after logout and sign-in',
     await page.locator('#login-email').fill(user.email);
     await page.locator('#login-password').fill('fixture-password');
     await page.locator('#password-login-form button[type=submit]').tap();
-    await expect(page.locator('.greeting-name')).toHaveText('Tài khoản thử');
+    await expect(page.locator('.topbar-avatar')).toHaveAttribute('title', 'Tài khoản thử');
   };
   await signIn();
-  await expect(intro).toHaveAttribute('data-date', '2026-11-28');
-  await expect(intro).toHaveAttribute('data-place', 'aoraki');
+  await expect(intro).toHaveAttribute('data-date', '2026-11-27');
+  await expect(intro).toHaveAttribute('data-place', 'santorini');
   await intro.getByRole('button').tap();
   await page.locator('.sidebar [data-nav=settings]').tap();
   await page.locator('[data-action=logout]').tap();
@@ -139,7 +139,7 @@ test('account timezone and seen state remain separate after logout and sign-in',
   await signIn();
   await expect(intro).toHaveCount(0);
   expect(await page.evaluate(keys => keys.map(key => localStorage.getItem(key)), [
-    marker + 'demo:2026-11-27', marker + 'account:' + user.id + ':2026-11-28',
+    marker + 'demo:2026-11-27', marker + 'account:' + user.id + ':2026-11-27',
   ])).toEqual(['1', '1']);
 });
 

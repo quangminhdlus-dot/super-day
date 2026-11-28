@@ -10,6 +10,7 @@ import { createDailyOpening } from './lib/daily-opening.js';
 installViewportGuard(document);
 
 const paths = {
+  person: '<circle cx="12" cy="8" r="3.5"/><path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18m-13 5h2m4 0h2"/>',
   settings: '<path d="m9 3-1 3-3 1 1 4-2 2 2 3 3-1 2 3h3l1-3 3-1-1-4 2-2-2-3-3 1-2-3z"/><circle cx="11.5" cy="10.5" r="3"/>',
@@ -24,6 +25,7 @@ const paths = {
   mic: '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/>',
   moon: '<path d="M20 14A9 9 0 0 1 10 3a9 9 0 1 0 10 11Z"/>', heart: '<path d="M20 5c-4-4-8 1-8 1S8 1 4 5s0 9 8 15c8-6 12-11 8-15Z"/>'
 };
+const brand = `superday<span class="brand-seed" aria-hidden="true"></span>`;
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.sun}</svg>`;
 const e = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
@@ -47,7 +49,7 @@ const opening = createDailyOpening({
     if (state.booting || state.loading || state.authError || missingAccountCache ||
       state.view !== 'today' || state.selectedDate || dialog.open ||
       new URL(location.href).searchParams.has('focus')) return null;
-    return { account: state.user?.id ? 'account:' + state.user.id : 'demo', date: today() };
+    return { account: state.user?.id ? 'account:' + state.user.id : 'demo', date: localDate() };
   },
   enterToday() {
     render();
@@ -58,9 +60,57 @@ const opening = createDailyOpening({
   },
 });
 
+const celebratedDays = new Set();
+let activeCelebration;
+
+function celebrateClosedDayOnce(date) {
+  const key = 'super-day:celebrated:v1:' + (state.user?.id || 'demo') + ':' + date;
+  if (celebratedDays.has(key)) return;
+  try { if (localStorage.getItem(key) === '1') return; } catch { /* Continue in memory. */ }
+  celebratedDays.add(key);
+  try { localStorage.setItem(key, '1'); } catch { /* Continue in memory. */ }
+  celebrate('day', window.innerWidth * .5, window.innerHeight * .49);
+}
+
+function celebrate(kind, x, y) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  activeCelebration?.remove();
+  const layer = document.createElement('div');
+  layer.className = 'celebration-layer';
+  layer.dataset.celebration = kind;
+  layer.setAttribute('aria-hidden', 'true');
+  layer.style.setProperty('--x', x + 'px');
+  layer.style.setProperty('--y', y + 'px');
+  const full = kind === 'day';
+  const duration = full ? 1040 : 730;
+  layer.style.setProperty('--duration', duration + 'ms');
+  const halo = document.createElement('i');
+  halo.className = 'celebration-halo';
+  layer.append(halo);
+  for (let i = 0; i < (full ? 28 : 12); i++) {
+    const particle = document.createElement('i');
+    const glint = i % 3 === 0;
+    const angle = i * 2.399963;
+    const distance = (full ? Math.min(290, window.innerWidth * .57) : 117) * (.34 + (i % 7) / 10);
+    particle.className = 'celebration-particle' + (glint ? ' glint' : '');
+    particle.style.setProperty('--dx', Math.cos(angle) * distance + 'px');
+    particle.style.setProperty('--dy', Math.sin(angle) * distance + (full ? -20 : -10) + 'px');
+    particle.style.setProperty('--turn', (i % 2 ? -1 : 1) * (70 + i * 7) + 'deg');
+    particle.style.setProperty('--size', (glint ? 3 + i % 3 : 5 + i % 4) + 'px');
+    particle.style.setProperty('--color', glint || i % 4 === 0 ? '#d5a45d' : '#91a77c');
+    particle.style.setProperty('--delay', 24 * (i % 5) + 'ms');
+    layer.append(particle);
+  }
+  document.body.append(layer);
+  activeCelebration = layer;
+  setTimeout(() => {
+    layer.remove();
+    if (activeCelebration === layer) activeCelebration = null;
+  }, duration + 130);
+}
+
 function toast(message) { const t = document.querySelector('#toast'); t.textContent = message; t.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('visible'), 5000); }
 function saveLocal() { if (state.demo) persist('super-day:demo:v1', state.data); else persist(storageKey(), { data: state.data, outbox: state.outbox }); }
-function formatTime() { return new Intl.DateTimeFormat('vi-VN', { timeZone: state.data.profile.timezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()); }
 function navigate(view) { state.view = view; state.selectedDate = null; const url = new URL(location.href); url.searchParams.set('view', view); history.replaceState(null, '', url); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 function queue(kind, payload, repaint = true) {
   mutationRevision++;
@@ -100,100 +150,36 @@ function statusText() { return state.demo ? 'Bản trải nghiệm' : editingRem
 function renderStatus() { document.querySelectorAll('[data-sync-status]').forEach(el => { el.textContent = statusText(); }); }
 function shell(content) {
   const demoBanner = state.demo ? `<div class="demo-banner"><span>${icon('leaf')} Bạn đang trải nghiệm. Dữ liệu chỉ lưu trên thiết bị này.</span><button data-action="login">${state.booting ? 'Đang kiểm tra phiên…' : 'Đăng nhập'} ${icon('arrow')}</button></div>` : '';
-  return `<aside class="sidebar"><a class="brand" href="./" aria-label="Super Day, trang chủ">superday</a>
+  return `<aside class="sidebar"><a class="brand" href="./" aria-label="Super Day, trang chủ">${brand}</a>
     <nav aria-label="Điều hướng chính">${[['today', 'sun', 'Hôm nay'], ['journey', 'calendar', 'Hành trình'], ['settings', 'settings', 'Cài đặt']].map(([id, ic, label]) => `<button data-nav="${id}" class="nav-item ${state.view === id ? 'active' : ''}" ${state.view === id ? 'aria-current="page"' : ''}>${icon(ic)}<span>${label}</span>${state.view === id ? '<span class="nav-dot"></span>' : ''}</button>`).join('')}</nav>
     <div class="sidebar-bottom"><button class="account" data-action="${state.demo ? 'login' : 'account'}"><span class="avatar">${state.demo ? icon('sun') : e((state.data.profile.display_name || state.user.email)[0].toUpperCase())}</span><span><strong>${state.demo ? 'Không gian của bạn' : e(state.data.profile.display_name || 'Tài khoản của bạn')}</strong><small>${state.demo ? 'Đăng nhập để bắt đầu' : e(state.user.email)}</small></span>${icon('chevron')}</button></div></aside>
-    <div class="page page-${state.view}"><header class="topbar"><a class="mobile-brand" href="./" aria-label="Super Day">superday</a><span class="breadcrumb"><strong>${{ today: 'Hôm nay', journey: 'Hành trình', settings: 'Cài đặt' }[state.view]}</strong></span><div class="topbar-right"><span class="save-state"><span class="status-dot ${state.syncError ? 'warning' : ''}"></span><span data-sync-status>${statusText()}</span></span><button class="topbar-avatar" data-action="${state.demo ? 'login' : 'account'}" aria-label="Mở tài khoản">${state.demo ? icon('sun') : e((state.data.profile.display_name || state.user.email)[0].toUpperCase())}</button></div></header>
-    <main id="main">${state.view === 'today' ? '' : demoBanner}${state.authError ? `<div class="notice error">${e(state.authError)}</div>` : ''}${state.syncError ? `<div class="notice error" role="alert"><strong>Thay đổi đang được giữ trên thiết bị.</strong><p>${e(state.syncError)}</p><div class="button-row"><button class="text-button" data-action="retry">Thử đồng bộ lại</button><button class="text-button" data-action="resolve">Xử lý bản nháp</button><button class="text-button" data-action="export">Xuất dữ liệu</button></div></div>` : ''}${state.loading ? '<p class="loading">Đang mở không gian của bạn…</p>' : content}${state.view === 'today' ? demoBanner : ''}</main>
+    <div class="page page-${state.view}"><header class="topbar"><a class="mobile-brand" href="./" aria-label="Super Day">${brand}</a><span class="breadcrumb"><strong>${{ today: 'Hôm nay', journey: 'Hành trình', settings: 'Cài đặt' }[state.view]}</strong></span><div class="topbar-right"><span class="save-state"><span class="status-dot ${state.syncError ? 'warning' : ''}"></span><span data-sync-status>${statusText()}</span></span><button class="topbar-avatar" data-action="${state.demo ? 'login' : 'account'}" aria-label="Mở tài khoản" title="${e(state.data.profile.display_name || state.user?.email || 'Tài khoản')}">${state.demo ? icon('sun') : e((state.data.profile.display_name || state.user.email)[0].toUpperCase())}</button></div></header>
+    <main id="main">${state.authError ? `<div class="notice error">${e(state.authError)}</div>` : ''}${state.syncError ? `<div class="notice error" role="alert"><strong>Thay đổi đang được giữ trên thiết bị.</strong><p>${e(state.syncError)}</p><div class="button-row"><button class="text-button" data-action="retry">Thử đồng bộ lại</button><button class="text-button" data-action="resolve">Xử lý bản nháp</button><button class="text-button" data-action="export">Xuất dữ liệu</button></div></div>` : ''}${state.loading ? '<p class="loading">Đang mở không gian của bạn…</p>' : content}${demoBanner}</main>
     </div>`;
-}
-function weekStrip(selected) {
-  return `<div class="week-strip">${weekDates(selected).map((date, i) => {
-    const tasks = state.data.tasks.filter(t => t.date === date), count = tasks.filter(t => t.completed).length;
-    return `<button data-date="${date}" class="week-day ${date === selected ? 'selected' : ''} ${date === today() ? 'is-today' : ''}" aria-label="${e(dateLabel(date))}, ${tasks.length ? `${count}/${tasks.length} việc` : 'chưa có kế hoạch'}" ${date > today() ? 'disabled' : ''}><span>${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][i]}</span><strong>${+date.slice(8)}</strong><span class="day-indicator ${tasks.length ? count === tasks.length ? 'all-done' : count ? 'part-done' : 'planned' : ''}">${date === selected ? '•' : ''}</span></button>`;
-  }).join('')}</div>`;
 }
 function dailyEditor(date, historical = false) {
   const tasks = state.data.tasks.filter(t => t.date === date), st = stats(tasks), day = state.data.days.find(d => d.date === date) || { reflection: '', closed_at: null };
+  const completeDay = !!day.closed_at && st.done === 3;
   const children = new Map(state.data.tasks.filter(t => t.previous_task_id).map(t => [t.previous_task_id, t]));
-  return `<section class="priorities panel"><div class="priorities-heading"><h2>${historical ? '3 việc trong ngày' : '3 việc quan trọng'}</h2><div class="progress-summary"><span class="sr-only">Tiến độ</span><strong>${st.done}<span>/3 việc</span></strong></div></div><div class="progress-track" role="progressbar" aria-label="Tiến độ ba việc" aria-valuenow="${st.done}" aria-valuemin="0" aria-valuemax="3"><span style="width:${st.done / 3 * 100}%"></span></div>
+
+  return `<div class="day-editor ${completeDay ? 'is-complete-day' : ''}"><section class="priorities" aria-label="Ba việc quan trọng">
     <div class="tasks">${[1, 2, 3].map(slot => {
       const t = tasks.find(x => x.slot === slot), moved = t && children.get(t.id);
-      return `<div class="task ${t?.completed ? 'is-complete' : ''} ${!t ? 'is-empty' : ''}"><div class="task-main"><button class="task-check" data-complete="${slot}" data-edit-date="${date}" aria-label="${t?.completed ? 'Bỏ đánh dấu' : 'Hoàn thành'} việc ${slot}" aria-pressed="${!!t?.completed}" ${!t ? 'disabled' : ''}>${t?.completed ? icon('check') : ''}</button><div class="task-content"><label for="task-${date}-${slot}" class="sr-only">Việc quan trọng ${slot}</label><textarea id="task-${date}-${slot}" data-task="${slot}" data-edit-date="${date}" rows="1" maxlength="500" autocomplete="off" placeholder="${['Việc quan trọng nhất hôm nay', 'Ưu tiên thứ hai của bạn', 'Điều tiếp theo cần hoàn thành'][slot - 1]}">${e(t?.title)}</textarea>${!t?.completed && (moved || t?.carry_count) ? `<div class="task-meta">${moved ? `<button class="inline-link" data-open-day="${moved.date}">Đã chuyển đến ${e(dateLabel(moved.date, { month: 'numeric' }))} ${icon('arrow')}</button>` : `<span class="carry-label">Đã chuyển ${t.carry_count} lần</span>`}</div>` : ''}</div></div>${t && t.carry_count >= 2 && !t.completed ? `<div class="attention-note">${icon('leaf')}<div><p>Công việc này đã được chuyển sang ngày khác nhiều lần. Điều gì đang khiến bạn chưa thực hiện được?</p><label class="sr-only" for="reason-${t.id}">Điều khiến bạn chưa thực hiện</label><textarea id="reason-${t.id}" data-reason="${slot}" data-edit-date="${date}" rows="2" maxlength="5000" placeholder="Điều gì đang khiến bạn chưa bắt đầu?">${e(t.reason)}</textarea></div></div>` : ''}${t && !t.completed && !moved && date < today() ? `<button class="carry-button" data-carry="${t.id}">Chuyển sang hôm nay ${icon('arrow')}</button>` : ''}</div>`;
-    }).join('')}</div></section>
-    <section class="reflection panel" id="reflection"><div class="section-top"><div class="section-title-icon">${icon('book')}<h2>Một chút nhìn lại</h2></div><span class="optional">Tùy bạn</span></div><label class="sr-only" for="reflection-${date}">Ghi chép ngày ${date}</label><div class="reflection-input-wrap"><textarea id="reflection-${date}" data-reflection="${date}" maxlength="100000" placeholder="Hôm nay bạn cảm thấy như thế nào? Có điều gì khiến bạn suy nghĩ hoặc muốn ghi nhớ?">${e(day.reflection)}</textarea><button type="button" class="reflection-mic-button" data-reflection-record="${date}" aria-label="Ghi âm một chút nhìn lại" title="Ghi âm">${icon("mic")}</button></div><div class="reflection-bottom"><span>${icon('cloud')} Tự động lưu khi bạn viết</span><span>${(day.reflection || '').length.toLocaleString('vi-VN')} ký tự</span></div></section>
-    <div class="end-day"><button class="secondary-button" data-close-day="${date}">${day.closed_at ? 'Mở lại ngày' : 'Khép lại ngày'} ${icon(day.closed_at ? 'sun' : 'check')}</button></div>`;
-}
-
-/* Packaged photographs. Each archive record identifies the image and its license. */
-const worldPhotos = [
-  {
-    file: 'ha-long',
-    name: 'Vịnh Hạ Long',
-    region: 'Quảng Ninh, Việt Nam',
-    alt: 'Những đảo đá vôi nổi lên giữa mặt nước Vịnh Hạ Long',
-    facts: 'Nằm ở Đông Bắc Việt Nam. Những đảo đá vôi nhô lên khỏi mặt biển tạo nên địa hình karst đặc trưng.',
-    creator: 'Mustang Joe',
-    photo: 'https://commons.wikimedia.org/wiki/File:H%E1%BA%A1_Long_Bay_Panorama,_Vietnam.jpg',
-    license: 'CC0 1.0',
-    licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
-    source: 'https://whc.unesco.org/en/list/672/',
-  },
-  {
-    file: 'aoraki',
-    name: 'Aoraki / Mount Cook',
-    region: 'Canterbury, New Zealand',
-    alt: 'Núi Aoraki phủ tuyết phía sau hồ Hooker',
-    facts: 'Đây là ngọn núi cao nhất New Zealand. Vườn quốc gia có 19 đỉnh cao trên 3.000 m.',
-    creator: 'A S',
-    photo: 'https://commons.wikimedia.org/wiki/File:Hooker_Lake.jpg',
-    license: 'CC BY 2.0',
-    licenseUrl: 'https://creativecommons.org/licenses/by/2.0/',
-    source: 'https://www.doc.govt.nz/parks-and-recreation/places-to-go/canterbury/places/aoraki-mount-cook-national-park/',
-  },
-  {
-    file: 'grand-teton',
-    name: 'Grand Teton',
-    region: 'Wyoming, Hoa Kỳ',
-    alt: 'Dãy núi Teton nhìn qua đồng cỏ từ Jackson Lake Lodge',
-    facts: 'Ảnh chụp từ lối đi sau Jackson Lake Lodge. Vườn quốc gia hiện nay được hợp nhất với Khu di tích Jackson Hole vào năm 1950.',
-    creator: 'Scott Horvath / USGS',
-    photo: 'https://www.usgs.gov/media/images/grand-tetons',
-    license: 'CC0 1.0',
-    licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
-    source: 'https://www.usgs.gov/media/images/grand-tetons',
-  },
-];
-
-function worldPhoto(date) {
-  // Use the account's calendar day, which is already computed by today().
-  const day = Date.parse(date + 'T00:00:00Z') / 86400000;
-  const photo = worldPhotos[((day % worldPhotos.length) + worldPhotos.length) % worldPhotos.length];
-  return `<figure class="world-photo" data-world-date="${date}">
-    <div class="world-photo-media">
-      <span class="world-photo-fallback" hidden>${icon('sun')} Ảnh chưa khả dụng</span>
-      <img src="./photos/${photo.file}.webp" alt="${e(photo.alt)}" width="1280" height="720" fetchpriority="high">
-      <span class="world-photo-label">Thế giới hôm nay</span>
-    </div>
-    <figcaption>
-      <div class="world-photo-place"><strong>${e(photo.name)}</strong><span>${e(photo.region)}</span></div>
-      <details class="world-photo-details" ${document.querySelector(`.world-photo[data-world-date="${date}"] details[open]`) ? 'open' : ''}>
-        <summary>Về nơi này</summary>
-        <p>${e(photo.facts)}</p>
-        <p class="world-photo-credit"><a href="${photo.source}" target="_blank" rel="noopener">Nguồn địa danh</a> · Ảnh <a href="${photo.photo}" target="_blank" rel="noopener">${e(photo.creator)}</a> · <a href="${photo.licenseUrl}" target="_blank" rel="noopener">${photo.license}</a> · Đã đổi kích thước và định dạng</p>
-      </details>
-    </figcaption>
-  </figure>`;
+      return `<div class="task ${t?.completed ? 'is-complete' : ''} ${!t ? 'is-empty' : ''}"><div class="task-main"><button class="task-check" data-complete="${slot}" data-edit-date="${date}" aria-label="${t?.completed ? 'Bỏ đánh dấu' : 'Hoàn thành'} việc ${slot}" aria-pressed="${!!t?.completed}" ${!t ? 'disabled' : ''}>${t?.completed ? icon('check') : ''}</button><div class="task-content"><label for="task-${date}-${slot}" class="sr-only">Việc quan trọng ${slot}</label><textarea id="task-${date}-${slot}" data-task="${slot}" data-edit-date="${date}" rows="1" maxlength="500" autocomplete="off" placeholder="${['Việc quan trọng nhất hôm nay', 'Ưu tiên thứ hai của bạn', 'Điều tiếp theo cần hoàn thành'][slot - 1]}">${e(t?.title)}</textarea>${!t?.completed && (moved || t?.carry_count) ? `<div class="task-meta">${moved ? `<button class="inline-link" data-open-day="${moved.date}">Đã chuyển đến ${e(dateLabel(moved.date, { month: 'numeric' }))} ${icon('arrow')}</button>` : `<span class="carry-label">Đã chuyển ${t.carry_count} lần</span>`}</div>` : ''}</div></div>${t && t.carry_count >= 2 && !t.completed ? `<details class="attention-note" ${document.getElementById('reason-' + t.id)?.closest('details')?.open ? 'open' : ''}><summary>Đã chuyển ngày nhiều lần</summary><div><p>Điều gì đang khiến bạn chưa thực hiện được?</p><label class="sr-only" for="reason-${t.id}">Điều khiến bạn chưa thực hiện</label><textarea id="reason-${t.id}" data-reason="${slot}" data-edit-date="${date}" rows="2" maxlength="5000" placeholder="Điều gì đang khiến bạn chưa bắt đầu?">${e(t.reason)}</textarea></div></details>` : ''}${t && !t.completed && !moved && date < today() ? `<button class="carry-button" data-carry="${t.id}">Chuyển sang hôm nay ${icon('arrow')}</button>` : ''}</div>`;
+    }).join('')}</div>
+    <div class="daily-progress"><div class="progress-summary"><strong>${st.done}/3<span> việc</span></strong></div>
+    <div class="progress-track" role="progressbar" aria-label="Tiến độ ba việc" aria-valuenow="${st.done}" aria-valuemin="0" aria-valuemax="3"><span style="width:${st.done / 3 * 100}%"></span></div></div></section>
+    <section class="reflection panel" id="reflection"><div class="section-top"><div class="section-title-icon">${icon('book')}<h2>Một chút ghi lại hôm nay...</h2></div></div><label class="sr-only" for="reflection-${date}">Ghi chép ngày ${date}</label><div class="reflection-input-wrap"><textarea id="reflection-${date}" data-reflection="${date}" maxlength="100000" placeholder="Hôm nay bạn cảm thấy thế nào?">${e(day.reflection)}</textarea><button type="button" class="reflection-mic-button" data-reflection-record="${date}" aria-label="Ghi âm một chút nhìn lại" title="Ghi âm">${icon("mic")}</button></div><div class="reflection-bottom"><span>${icon('cloud')} Tự động lưu khi bạn viết</span><span>${(day.reflection || '').length.toLocaleString('vi-VN')} ký tự</span></div></section>
+    ${completeDay ? `<section class="completed-message" aria-label="Đã khép lại ngày" aria-live="polite"><span class="completed-mark">${icon('check')}</span><div><h2>Một ngày trọn vẹn.</h2><p>Bạn đã giữ lời với chính mình.</p></div></section>` : ''}
+    <div class="end-day"><button class="secondary-button" data-close-day="${date}">${icon(day.closed_at ? 'sun' : 'check')} ${day.closed_at ? 'Mở lại ngày' : 'Khép lại ngày'}</button></div></div>`;
 }
 
 function todayPage() {
-  const date = state.selectedDate || today(), historical = date !== today();
-  const weekStats = stats(state.data.tasks.filter(t => weekDates(today()).includes(t.date)));
-  const leftovers = outstanding(state.data.tasks).filter(t => t.date < today());
-  return `<div class="page-heading today-heading"><div class="today-intro"><h1 class="greeting-name">${state.demo ? 'Hôm nay' : e(state.data.profile.display_name || 'Hôm nay')}</h1><div class="date-line"><time datetime="${today()}">${e(dateLabel(today(), { weekday: 'long', year: 'numeric' }))}</time><span class="time-pill" id="clock">${formatTime()}</span></div></div></div>
-    <div class="today-layout">${worldPhoto(today())}<div class="main-column">${weekStrip(date)}${historical ? `<div class="history-label"><span>Đang xem ${e(dateLabel(date, { weekday: 'long' }))}</span><button data-action="back-today">Về hôm nay ${icon('arrow')}</button></div>` : ''}${dailyEditor(date, historical)}</div><aside class="right-column">
-    <section class="week-card panel"><div class="section-top"><h3>Tuần này của bạn</h3>${icon('calendar')}</div><div class="week-stat"><strong>${weekStats.done}</strong><span>việc quan trọng<br>đã hoàn thành</span></div><div class="mini-bars" aria-hidden="true">${weekDates(today()).map(d => { const ts = state.data.tasks.filter(t => t.date === d); return `<span class="mini-bar ${d === today() ? 'current' : ''}"><i style="height:${ts.length ? Math.max(8, ts.filter(t => t.completed).length / 3 * 100) : 0}%"></i><small>${['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date(d + 'T12:00Z').getUTCDay()]}</small></span>`; }).join('')}</div><button class="card-link" data-nav="journey">Nhìn lại hành trình ${icon('arrow')}</button></section>
-    ${leftovers.length ? `<section class="leftovers-card"><span class="eyebrow">NHỮNG VIỆC CÒN DANG DỞ</span><p>${leftovers.length} việc từ những ngày trước.</p><button class="text-button" data-action="leftovers">Xem công việc ${icon('arrow')}</button></section>` : ''}<p class="private-note">${icon('heart')} Dữ liệu cá nhân, dành riêng cho bạn.</p></aside></div>`;
+  const date = today();
+  return `<div class="page-heading today-heading"><div class="today-intro">
+    <div class="date-line"><time datetime="${date}">${e(dateLabel(date, { weekday: 'long', year: 'numeric' }))}</time></div>
+    <h1 class="greeting-name">Hôm nay,<br><span>bạn tập trung vào điều gì?</span></h1>
+    </div></div><div class="today-layout">${dailyEditor(date)}</div>`;
 }
 function journeyPage() {
   const dates = state.range === 'week' ? weekDates(state.anchor) : monthDates(state.anchor);
@@ -201,19 +187,30 @@ function journeyPage() {
   const remaining = tasks.filter(t => !t.completed), attention = outstanding(state.data.tasks).filter(t => dates.includes(t.date) && t.carry_count >= 2);
   const selected = state.selectedDate;
   const monthStart = dates[0], pad = state.range === 'month' ? (new Date(monthStart + 'T12:00Z').getUTCDay() + 6) % 7 : 0;
-  return `<div class="page-heading simple"><div><h1>Hành trình</h1></div></div><div class="journey-toolbar"><div class="segmented" aria-label="Khoảng báo cáo"><button data-range="week" class="${state.range === 'week' ? 'active' : ''}">Tuần</button><button data-range="month" class="${state.range === 'month' ? 'active' : ''}">Tháng</button></div><div class="date-controls"><button class="icon-button flip" data-period="-1" aria-label="Khoảng trước">${icon('chevron')}</button><strong>${state.range === 'week' ? `${dateLabel(dates[0], { month: 'numeric' })} – ${dateLabel(dates[6], { month: 'numeric', year: 'numeric' })}` : dateLabel(monthStart, { day: undefined, month: 'long', year: 'numeric' })}</strong><button class="icon-button" data-period="1" aria-label="Khoảng sau">${icon('chevron')}</button><button class="text-button" data-action="current-period">Hiện tại</button></div></div>
-    <div class="stat-grid">${[[st.total, 'Việc đã đặt ra'], [st.done, 'Đã hoàn thành'], [st.remaining, 'Chưa hoàn thành'], [`${st.rate}%`, 'Tỷ lệ hoàn thành']].map(([n, label], index) => `<div class="stat-card"><span>${label}</span><strong>${n}</strong>${index === 3 ? `<div class="progress-track" aria-hidden="true"><span style="width:${st.rate}%"></span></div>` : ''}</div>`).join('')}</div>
+  return `<div class="page-heading simple journey-heading"><div><h1>Hành trình</h1><p>Theo dõi tiến độ theo tuần và tháng.</p></div></div><div class="journey-toolbar"><div class="segmented" aria-label="Khoảng báo cáo"><button data-range="week" class="${state.range === 'week' ? 'active' : ''}" aria-pressed="${state.range === 'week'}">Theo tuần</button><button data-range="month" class="${state.range === 'month' ? 'active' : ''}" aria-pressed="${state.range === 'month'}">Theo tháng</button></div><div class="date-controls"><button class="icon-button flip" data-period="-1" aria-label="Khoảng trước">${icon('chevron')}</button><strong>${state.range === 'week' ? `${dateLabel(dates[0], { month: 'numeric' })} – ${dateLabel(dates[6], { month: 'numeric', year: 'numeric' })}` : dateLabel(monthStart, { day: undefined, month: 'long', year: 'numeric' })}</strong><button class="icon-button" data-period="1" aria-label="Khoảng sau">${icon('chevron')}</button><button class="text-button" data-action="current-period">Hiện tại</button></div></div>
+
+    <section class="panel journey-overview" aria-label="Tổng quan tiến độ">
+      <div class="journey-ring" style="--rate:${st.rate}%" role="img" aria-label="Tỷ lệ hoàn thành: ${st.rate}%">
+        <div><strong>${st.rate}%</strong><small>${st.done}/${st.total} việc</small></div>
+      </div>
+      <div class="journey-overview-copy"><h2>Tiến độ ${state.range === 'week' ? 'trong tuần' : 'trong tháng'}</h2>
+        <dl><div><dt>Tổng số</dt><dd>${st.total}</dd></div><div><dt>Đã xong</dt><dd>${st.done}</dd></div><div><dt>Còn lại</dt><dd>${st.remaining}</dd></div></dl>
+      </div>
+    </section>
     <section class="panel calendar-panel"><div class="calendar-grid">${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(x => `<span class="calendar-weekday">${x}</span>`).join('')}${'<span></span>'.repeat(pad)}${dates.map(date => {
       const ts = state.data.tasks.filter(t => t.date === date), s = stats(ts), hasDay = state.data.days.find(d => d.date === date);
-      return `<button data-open-day="${date}" class="calendar-day ${selected === date ? 'selected' : ''} ${date === today() ? 'is-today' : ''} ${s.total && s.done === s.total ? 'complete' : ''}" ${date > today() ? 'disabled' : ''}><strong>${+date.slice(8)}</strong><span>${s.total ? `${s.done}/${s.total}` : hasDay ? 'Ghi chép' : '—'}</span>${hasDay?.reflection ? '<i aria-label="Có ghi chép"></i>' : ''}</button>`;
+      return `<button data-open-day="${date}" aria-label="${e(dateLabel(date))}, ${s.total ? `${s.done}/${s.total} việc` : 'chưa có kế hoạch'}${hasDay?.reflection ? ', có ghi chép' : ''}" class="calendar-day ${selected === date ? 'selected' : ''} ${date === today() ? 'is-today' : ''} ${s.total && s.done === s.total ? 'complete' : ''}" ${date > today() ? 'disabled' : ''}><strong>${+date.slice(8)}</strong><span class="calendar-progress" aria-hidden="true">${s.total && s.done === s.total ? icon('check') : s.total ? `${s.done}/${s.total}` : ''}</span>${hasDay?.reflection ? '<i aria-label="Có ghi chép"></i>' : ''}</button>`;
     }).join('')}</div><div class="calendar-legend"><span><i class="legend-dot"></i> Có kế hoạch</span><span><i class="legend-dot done"></i> Hoàn thành tất cả</span><span>— Chưa có kế hoạch</span></div></section>
     <p class="report-note">Việc chuyển ngày được tính ở từng ngày.</p>
     ${selected ? `<div class="history-label detail-heading"><h2>${e(dateLabel(selected, { weekday: 'long', year: 'numeric' }))}</h2><button class="icon-button" data-action="close-detail" aria-label="Đóng chi tiết">${icon('close')}</button></div>${dailyEditor(selected, true)}` : ''}
-    <div class="journey-lists"><section class="panel"><div class="section-top"><h2>Còn dang dở</h2><span class="count-badge">${remaining.length}</span></div>${taskList(remaining)}</section><section class="panel attention-panel"><div class="section-top"><h2>Một chút chú ý</h2>${icon('leaf')}</div><p class="section-description">Những việc đã chuyển ngày từ hai lần.</p>${taskList(attention, true)}</section></div>
+    <div class="journey-lists"><section class="panel"><div class="section-top"><h2>Còn dang dở</h2><span class="count-badge">${remaining.length}</span></div>${taskList(remaining, false, 2)}${outstanding(state.data.tasks).some(task => task.date < today()) ? `<button class="text-button" data-action="leftovers">Việc có thể chuyển sang hôm nay ${icon('arrow')}</button>` : ''}</section><section class="panel attention-panel"><div class="section-top"><h2>Một chút chú ý</h2><span class="attention-emblem">${icon('leaf')}</span></div><p class="section-description">Những việc đã chuyển ngày từ hai lần.</p>${taskList(attention, true)}</section></div>
     <section class="panel journal-list"><div class="section-title-icon">${icon('book')}<h2>Những dòng để nhớ</h2></div>${state.data.days.filter(d => dates.includes(d.date) && d.reflection).sort((a,b) => b.date.localeCompare(a.date)).map(d => `<button class="journal-item" data-open-day="${d.date}"><span>${e(dateLabel(d.date, { weekday: 'short' }))}</span><p>${e(d.reflection.slice(0, 240))}${d.reflection.length > 240 ? '…' : ''}</p>${icon('arrow')}</button>`).join('') || '<div class="empty-state">Một vài dòng khi bạn muốn. Những ghi chép của bạn sẽ ở đây.</div>'}</section>`;
 }
-function taskList(tasks, attention = false) {
-  return tasks.length ? `<div class="history-task-list">${tasks.map(t => `<div class="history-task"><div><strong>${e(t.title)}</strong><small>${e(dateLabel(t.date, { month: 'numeric' }))}${t.carry_count ? ` · Đã chuyển ${t.carry_count} lần` : ''}${state.data.tasks.some(next => next.previous_task_id === t.id) ? ' · Đã chuyển tiếp' : ''}</small>${attention && t.reason ? `<p>${e(t.reason)}</p>` : ''}</div><button class="icon-button" data-open-day="${t.date}" aria-label="Xem công việc ${e(t.title)}">${icon('arrow')}</button></div>`).join('')}</div>` : `<div class="empty-state">${icon('leaf')}<span>${attention ? 'Chưa có việc cần chú ý trong khoảng này.' : 'Không có công việc còn dang dở trong khoảng này.'}</span></div>`;
+function taskList(tasks, attention = false, preview = tasks.length) {
+  const row = t => `<div class="history-task"><div><strong>${e(t.title)}</strong><small>${e(dateLabel(t.date, { month: 'numeric' }))}${t.carry_count ? ` · Đã chuyển ${t.carry_count} lần` : ''}${state.data.tasks.some(next => next.previous_task_id === t.id) ? ' · Đã chuyển tiếp' : ''}</small>${attention && t.reason ? `<p>${e(t.reason)}</p>` : ''}</div><button class="icon-button" data-open-day="${t.date}" aria-label="Xem công việc ${e(t.title)}">${icon('arrow')}</button></div>`;
+  const extra = tasks.slice(preview);
+  const expanded = document.querySelector('.history-more[open]');
+  return tasks.length ? `<div class="history-task-list">${tasks.slice(0, preview).map(row).join('')}${extra.length ? `<details class="history-more" ${expanded ? 'open' : ''}><summary>Xem tất cả (${tasks.length})</summary>${extra.map(row).join('')}</details>` : ''}</div>` : `<div class="empty-state">${icon('leaf')}<span>${attention ? 'Chưa có việc cần chú ý trong khoảng này.' : 'Không có công việc còn dang dở trong khoảng này.'}</span></div>`;
 }
 async function updatePushInfo(userId) {
   const sdk = state.push, inspection = ++pushInspection;
@@ -251,7 +248,7 @@ function pushDiagnostics() {
 function settingsPage() {
   const reminders = ['morning', 'noon', 'evening'].map(kind => state.data.reminders.find(reminder => reminder.kind === kind)).filter(Boolean);
   const pushLabel = state.demo ? 'Đăng nhập để nhận nhắc nhở' : state.pushStatus || 'Đang chuẩn bị kết nối…';
-  return `<div class="page-heading simple settings-heading"><div><h1>Cài đặt</h1></div></div><div class="settings-layout"><div class="main-column"><section class="panel settings-section"><div class="section-title-icon">${icon('sun')}<h2>Tài khoản</h2></div><div class="setting-row"><span>Email</span><strong>${state.demo ? 'Chưa đăng nhập' : e(state.user.email)}</strong></div><label class="setting-row" for="display-name"><span>Tên</span><input id="display-name" data-profile="display_name" maxlength="80" value="${e(state.data.profile.display_name)}" placeholder="Bạn muốn được gọi là gì?"></label><label class="setting-row" for="timezone"><span>Múi giờ</span><select id="timezone" data-profile="timezone">${[...new Set([DEFAULT_ZONE, state.data.profile.timezone, 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])].map(z => `<option ${z === state.data.profile.timezone ? 'selected' : ''} value="${z}">${z === DEFAULT_ZONE ? 'Việt Nam (GMT+7)' : z.replaceAll('_', ' ')}</option>`).join('')}</select></label>${state.demo ? '<button class="primary-button" data-action="login">Đăng nhập bằng email '+icon('arrow')+'</button>' : '<div class="password-settings"><button class="secondary-button" data-action="change-password">Thiết lập hoặc thay đổi mật khẩu</button></div>'}</section>
+  return `<div class="page-heading simple settings-heading"><div><h1>Cài đặt</h1></div></div><div class="settings-layout"><div class="main-column"><section class="panel settings-section account-section"><div class="section-title-icon"><span class="profile-emblem">${icon('person')}</span><h2 class="sr-only">Tài khoản</h2></div><div class="profile-fields"><div class="setting-row profile-email"><span>Email</span><strong>${state.demo ? 'Chưa đăng nhập' : e(state.user.email)}</strong></div><label class="setting-row profile-name" for="display-name"><span>Tên</span><input id="display-name" data-profile="display_name" maxlength="80" value="${e(state.data.profile.display_name)}" placeholder="Bạn muốn được gọi là gì?"></label></div><details class="account-options" ${document.querySelector('.account-options[open]') ? 'open' : ''}><summary>Tuỳ chọn tài khoản</summary><label class="setting-row" for="timezone"><span>Múi giờ</span><select id="timezone" data-profile="timezone">${[...new Set([DEFAULT_ZONE, state.data.profile.timezone, 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])].map(z => `<option ${z === state.data.profile.timezone ? 'selected' : ''} value="${z}">${z === DEFAULT_ZONE ? 'Việt Nam (GMT+7)' : z.replaceAll('_', ' ')}</option>`).join('')}</select></label></details>${state.demo ? '<button class="primary-button" data-action="login">Đăng nhập bằng email '+icon('arrow')+'</button>' : '<div class="password-settings"><button class="secondary-button" data-action="change-password">Thiết lập hoặc thay đổi mật khẩu</button></div>'}</section>
     <section class="panel settings-section appearance-section"><div class="section-title-icon">${icon('type')}<h2>Cỡ chữ</h2></div><div class="font-options" role="group" aria-label="Cỡ chữ">${FONT_OPTIONS.map(option => `<button id="font-size-${option.value}" class="font-option ${state.appearance.fontSize === option.value ? 'selected' : ''}" data-font-size="${option.value}" aria-pressed="${state.appearance.fontSize === option.value}"><span>${option.label}</span></button>`).join('')}</div></section>
     <section class="panel settings-section"><div class="section-title-icon">${icon('bell')}<h2>Thông báo hằng ngày</h2></div><p class="section-description">Giờ nhắc theo múi giờ tài khoản.</p>${reminders.map(r => `<div class="reminder-row"><span class="reminder-icon">${icon({ morning: 'sun', noon: 'leaf', evening: 'moon' }[r.kind])}</span><div><strong>${{ morning: 'Mục tiêu ngày mới', noon: 'Kiểm tra tiến độ', evening: 'Nhìn lại hôm nay' }[r.kind]}</strong></div><label class="sr-only" for="time-${r.kind}">Giờ ${r.kind === 'morning' ? 'sáng' : r.kind === 'noon' ? 'trưa' : 'tối'}</label><div class="reminder-time-control"><input type="time" id="time-${r.kind}" data-reminder-time="${r.kind}" value="${e(r.time.slice(0, 5))}" step="60" required><button id="time-done-${r.kind}" class="text-button time-done" data-reminder-done="${r.kind}" aria-label="Xong giờ ${r.kind === 'morning' ? 'Mục tiêu ngày mới' : r.kind === 'noon' ? 'Kiểm tra tiến độ' : 'Nhìn lại hôm nay'}" hidden>Xong</button></div><button class="toggle ${r.enabled ? 'on' : ''}" role="switch" aria-checked="${r.enabled}" aria-label="Bật tắt ${r.kind === 'morning' ? 'nhắc sáng' : r.kind === 'noon' ? 'nhắc trưa' : 'nhắc tối'}" data-reminder-toggle="${r.kind}"><span></span></button></div>`).join('')}<div class="notification-state"><span class="status-dot ${state.pushInfo?.ready ? '' : 'warning'}"></span>${e(pushLabel)}</div><div class="button-row"><button class="primary-button" data-action="enable-push" ${state.pushBusy || state.pushSending || (!state.demo && !config.oneSignalAppId) ? 'disabled' : ''}>${icon('bell')} ${state.pushBusy ? 'Đang đăng ký…' : !state.demo && !state.push ? 'Kết nối lại thông báo' : 'Cho phép thông báo'}</button><button class="secondary-button" data-action="test-push" ${state.demo || !state.pushInfo?.ready || state.pushBusy || state.pushSending ? 'disabled' : ''}>${state.pushSending ? 'Đang gửi…' : 'Gửi thông báo thử'}</button></div>${state.demo ? '' : pushDiagnostics()}<p class="field-hint">Thông báo thử chỉ xác nhận gửi khi hệ thống chấp nhận. Hãy kiểm tra thông báo trên iPhone của bạn.</p></section>
     <section class="panel settings-section"><div class="section-title-icon">${icon('download')}<h2>Dữ liệu cá nhân</h2></div><p class="section-description">Xuất công việc, lịch sử chuyển ngày, ghi chép và cài đặt dưới dạng JSON.</p><div class="button-row"><button class="secondary-button" data-action="export">${icon('download')} Xuất dữ liệu cá nhân</button>${!state.demo ? '<button class="text-button logout-button" data-action="logout">'+icon('logout')+' Đăng xuất</button>' : '<button class="text-button" data-action="reset-demo">Đặt lại bản trải nghiệm</button>'}</div></section></div>
@@ -356,7 +353,6 @@ async function handleAction(action) {
     finally { button.disabled = false; }
   }
   if (action === 'account') return navigate('settings');
-  if (action === 'back-today') { state.selectedDate = null; render(); }
   if (action === 'current-period') { state.anchor = today(); state.selectedDate = null; render(); }
   if (action === 'close-detail') { state.selectedDate = null; render(); }
   if (action === 'export') exportData();
@@ -579,21 +575,36 @@ document.addEventListener('click', async event => {
   if (el.hasAttribute('data-dialog-close')) { dialog.close(); return; }
   if (el.dataset.fontSize) { chooseFontSize(el.dataset.fontSize); return; }
   if (el.dataset.nav) navigate(el.dataset.nav);
-  if (el.dataset.date) { state.selectedDate = el.dataset.date; render(); }
   if (el.dataset.openDay) openDay(el.dataset.openDay);
   if (el.dataset.range) { state.range = el.dataset.range; state.selectedDate = null; render(); }
   if (el.dataset.period) { state.anchor = shiftDate(state.anchor, state.range === 'week' ? +el.dataset.period * 7 : +el.dataset.period * (el.dataset.period === '1' ? monthDates(state.anchor).length - (+state.anchor.slice(8) - 1) : +state.anchor.slice(8))); state.selectedDate = null; render(); }
   if (el.dataset.complete) {
     const slot = +el.dataset.complete, date = el.dataset.editDate, t = state.data.tasks.find(t => t.date === date && t.slot === slot);
-    if (t) queue('task', { date, slot, id: t.id, patch: { completed: !t.completed }, expected: { completed: t.completed } });
+if (t) {
+      const isToday = state.view === 'today' && date === today();
+      const done = isToday ? stats(state.data.tasks.filter(task => task.date === date)).done : 0;
+      const completed = !t.completed;
+      const origin = isToday ? el.getBoundingClientRect() : null;
+      queue('task', { date, slot, id: t.id, patch: { completed }, expected: { completed: t.completed } });
+      if (origin && completed && done === 2) {
+        app.querySelector('.priorities .task:nth-child(' + slot + ')')?.classList.add('celebrating-task');
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          app.querySelector('.daily-progress .progress-track > span')?.animate([
+            { width: '66.666%' }, { width: '100%' },
+          ], { duration: 420, easing: 'ease-out' });
+        }
+        celebrate('task', origin.x + origin.width / 2, origin.y + origin.height / 2);
+      }
+    }
   }
   if (el.dataset.closeDay) {
     const date = el.dataset.closeDay;
     const wasClosed = !!state.data.days.find(day => day.date === date)?.closed_at;
+    const isComplete = stats(state.data.tasks.filter(task => task.date === date)).done === 3;
     queue('day', { date, patch: { closed_at: wasClosed ? null : new Date().toISOString() } });
     if (!wasClosed) {
-      toast('Cảm ơn bạn đã dành thời gian cho ngày hôm nay.');
-      if (date === today()) app.querySelector('.end-day')?.classList.add('just-closed');
+      if (!isComplete) toast('Cảm ơn bạn đã dành thời gian cho ngày hôm nay.');
+      if (isComplete && date === today()) celebrateClosedDayOnce(date);
     }
   }
   if (el.dataset.reminderToggle) { const r = state.data.reminders.find(r => r.kind === el.dataset.reminderToggle); queue('reminder', { kind: r.kind, patch: { enabled: !r.enabled } }); }
@@ -693,11 +704,6 @@ window.addEventListener('online', async () => { if (!state.syncError.includes('C
 window.addEventListener('focus', () => refresh());
 window.addEventListener('resize', () => requestAnimationFrame(resizeTaskFields));
 window.addEventListener('pagehide', () => { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); });
-document.addEventListener('error', event => {
-  if (!event.target.matches?.('.world-photo-media img')) return;
-  event.target.hidden = true;
-  event.target.previousElementSibling.hidden = false;
-}, true);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); }
   else { opening.reconcile(); opening.show(); refresh(); }
@@ -705,7 +711,6 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pageshow', event => { if (event.persisted) { opening.reconcile(); opening.show(); } });
 window.addEventListener('storage', opening.onStorage);
 setInterval(() => {
-  const clock = document.querySelector('#clock'); if (clock) clock.textContent = formatTime();
   if (today() !== lastDate) { flushAllText(); state.selectedDate = null; lastDate = today(); render(); }
   if (document.visibilityState === 'visible') refresh();
 }, 60000);

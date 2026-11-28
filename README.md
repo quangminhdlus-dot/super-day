@@ -53,7 +53,7 @@ Tệp giao diện và các module có mã phiên bản để tránh cache cũ. S
 
 ## Màn mở đầu mỗi ngày
 
-Lần mở Hôm nay đầu tiên trong ngày theo múi giờ tài khoản sẽ hiện một địa danh toàn màn hình. Sau khi chạm, ứng dụng lưu dấu đã xem riêng cho ngày đó và tài khoản trên thiết bị. Phiên giảm chuyển động mở thẳng Hôm nay sau khi chạm. Các đường dẫn đi thẳng đến Cài đặt, Hành trình hoặc phần nhìn lại vẫn mở đúng đích.
+Lần mở Hôm nay đầu tiên trong ngày theo giờ Việt Nam (Asia/Ho_Chi_Minh) sẽ hiện một địa danh toàn màn hình. Sau khi chạm, ứng dụng lưu dấu đã xem riêng cho ngày đó và tài khoản trên thiết bị. Phiên giảm chuyển động mở thẳng Hôm nay sau khi chạm. Các đường dẫn đi thẳng đến Cài đặt, Hành trình hoặc phần nhìn lại vẫn mở đúng đích.
 
 Danh sách địa danh được đóng gói tại [daily-places.js](src/lib/daily-places.js). Ảnh đã lưu đệm có thể mở ngoại tuyến. Khi ảnh chưa khả dụng, người dùng vẫn vào Hôm nay được. Xem [tác giả, nguồn và giấy phép từng ảnh](public/photos/opening/credits.txt).
 
