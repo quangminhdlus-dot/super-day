@@ -57,6 +57,14 @@ Lần mở Hôm nay đầu tiên trong ngày theo giờ Việt Nam (Asia/Ho_Chi_
 
 Danh sách địa danh được đóng gói tại [daily-places.js](src/lib/daily-places.js). Ảnh đã lưu đệm có thể mở ngoại tuyến. Khi ảnh chưa khả dụng, người dùng vẫn vào Hôm nay được. Xem [tác giả, nguồn và giấy phép từng ảnh](public/photos/opening/credits.txt).
 
+## Hành trình, Lịch, Giai đoạn và Ý tưởng
+
+Thanh điều hướng gồm Hôm nay, Hành trình, Giai đoạn và Ý tưởng. Mở Lịch ngay trong Hành trình. Cài đặt nằm ở nút góc trên và có thể đóng để về đúng màn trước đó.
+
+Lịch trình, giai đoạn và ý tưởng được lưu trong trình duyệt theo tài khoản, có thể dùng ngoại tuyến sau khi đã mở ứng dụng và đi kèm tệp xuất JSON. Dữ liệu này chưa đồng bộ giữa thiết bị. Nhắc lịch dùng giờ Việt Nam và chạy khi Super Day đang mở trên màn hình. Anh có thể hoãn 5, 10 hoặc 15 phút tối đa ba lần, hoặc xác nhận đã xem. Các nhắc lịch mới chưa có push khi ứng dụng đã đóng. Nhắc hằng ngày qua OneSignal vẫn dùng hệ thống cũ.
+
+Âm lịch 2000–2100 dùng bảng sóc và Đông chí theo UTC+7. Tham khảo [quy tắc âm lịch Việt Nam](https://www.xemamlich.uhm.vn/calrules_en.html). Tạo lại bảng khi cần bằng `npm install --prefix work/lunar-tools --no-save astronomy-engine@2.1.19` rồi chạy `node scripts/generate-vn-lunar.mjs work/lunar-tools`. Trình duyệt không tải Astronomy Engine.
+
 ## Chạy trên máy
 
 Cần Node.js 22 trở lên. Giao diện dùng JavaScript và CSS thuần; SDK Supabase chính thức được đóng gói cùng ứng dụng.

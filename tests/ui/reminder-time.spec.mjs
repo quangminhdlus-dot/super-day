@@ -150,7 +150,7 @@ test('A stale background response and a deferred repaint cannot close the picker
   await page.locator('.sidebar [data-nav="journey"]').click({ delay: 150 });
   await expect(page.locator('.sidebar [data-nav="journey"]')).toHaveAttribute('aria-current', 'page');
   await expect.poll(() => fixture.applied.length).toBe(1);
-  await page.locator('.sidebar [data-nav="settings"]').click();
+  await page.locator('.topbar [data-nav="settings"]').click();
   await expect(page.locator('[data-reminder-time="noon"]')).toHaveValue('17:43');
 });
 

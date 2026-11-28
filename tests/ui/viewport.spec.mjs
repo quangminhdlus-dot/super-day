@@ -17,7 +17,8 @@ test('Pinch in, pinch out and double tap keep all three screens at 100%', async 
   const client = await context.newCDPSession(page);
   for (const view of ['today', 'journey', 'settings']) {
     await page.goto(`./?view=${view}`);
-    await expect(page.locator(`.sidebar [data-nav="${view}"]`)).toHaveAttribute('aria-current', 'page');
+    if (view === 'settings') await expect(page.locator('.settings-heading')).toHaveText('Cài đặt');
+    else await expect(page.locator(`.sidebar [data-nav="${view}"]`)).toHaveAttribute('aria-current', 'page');
     await pinch(client, 1.8);
     await expectDefaultScale(page);
     await pinch(client, 0.6);
@@ -55,7 +56,7 @@ test('Safari gesture fallback preserves normal touch events, vertical scroll and
   // can be ignored by mobile Chrome even on a scrollable page.
   await page.evaluate(() => window.scrollTo({ top: 350, behavior: 'instant' }));
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-  await page.locator('.sidebar [data-nav="settings"]').tap();
+  await page.locator('.topbar [data-nav="settings"]').tap();
   await expect(page.locator('.appearance-section')).toBeAttached();
   await expectDefaultScale(page);
 });
@@ -71,7 +72,7 @@ test('Inputs and dialogs retain 100% scale at every font size', async ({ page, c
     await page.locator(`button[data-font-size="${size}"]`).tap();
     await page.locator('#display-name').fill('Tên của bạn');
     await expectDefaultScale(page);
-    await page.locator('.topbar-avatar').tap();
+    await page.locator('.account-section [data-action=login]').tap();
     await expect(page.locator('#password-login-form')).toBeVisible();
     for (const selector of ['#login-email', '#login-password']) {
       const input = page.locator(selector);

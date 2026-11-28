@@ -49,6 +49,7 @@ async function appHarness({ signedIn = false, pushEnabled = false } = {}) {
   };
   runInNewContext(source, {
     ...domain, ...passwordAuth, ...appearance, installViewportGuard, mergeReflection,
+    createWorkspace: () => ({ reset() {}, tick() {}, onStorage() {}, snapshot: () => ({}) }),
     createDailyOpening: () => ({ show() {}, reconcile() {}, onStorage() {} }),
     createReflectionRecorder: () => ({ open: async () => false, isActive: () => false }), document, navigator: {},
     window: { addEventListener() {}, scrollTo() {} },

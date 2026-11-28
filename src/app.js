@@ -6,10 +6,15 @@ import { preparePush, detachPush, inspectPush, registerPush, observePush, pushSt
 import { installViewportGuard } from './lib/viewport.js';
 import { createReflectionRecorder, mergeReflection } from './lib/reflection-voice.js';
 import { createDailyOpening } from './lib/daily-opening.js';
+import { createWorkspace } from './lib/workspace.js';
 
 installViewportGuard(document);
 
 const paths = {
+  layers: '<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 4 9 5 9-5"/>',
+  bulb: '<path d="M8 16c0-2-4-3.3-4-8a8 8 0 0 1 16 0c0 4.7-4 6-4 8m-7 4h6m-5 3h4m-5-7h6"/>',
+  search: '<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',
+  star: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9L12 3Z"/>',
   person: '<circle cx="12" cy="8" r="3.5"/><path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18m-13 5h2m4 0h2"/>',
@@ -32,8 +37,11 @@ const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(k
 function persist(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { toast('Bộ nhớ thiết bị đã đầy. Hãy xuất dữ liệu và giữ ứng dụng mở.'); return false; } }
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
-const initialView = new URL(location.href).searchParams.get('view');
-const state = { appearance: readAppearance(localStorage), data: read('super-day:demo:v1', null) || demoData(), demo: true, user: null, view: ['today', 'journey', 'settings'].includes(initialView) ? initialView : 'today', selectedDate: null, anchor: localDate(), range: 'week', outbox: [], syncing: false, syncError: '', loading: false, push: null, pushStatus: '', pushInfo: null, pushError: '', pushBusy: false, pushSending: false, booting: configured, authError: '' };
+const initialUrl = new URL(location.href);
+const initialView = initialUrl.searchParams.get('view');
+const viewLabels = { today: 'Hôm nay', journey: 'Hành trình', phases: 'Giai đoạn', ideas: 'Ý tưởng', settings: 'Cài đặt' };
+let settingsBack = { view: 'today', panel: 'overview' };
+const state = { appearance: readAppearance(localStorage), data: read('super-day:demo:v1', null) || demoData(), demo: true, user: null, view: Object.hasOwn(viewLabels, initialView) ? initialView : 'today', journeyMode: initialUrl.searchParams.get('panel') === 'calendar' ? 'calendar' : 'overview', selectedDate: null, anchor: localDate(), range: 'week', outbox: [], syncing: false, syncError: '', loading: false, push: null, pushStatus: '', pushInfo: null, pushError: '', pushBusy: false, pushSending: false, booting: configured, authError: '' };
 let syncPromise, loadPromise, toastTimer, stopPushObservation;
 let pushInspection = 0;
 let mutationRevision = 0;
@@ -42,6 +50,11 @@ let reminderTimeEdit = null, renderAfterTimeEdit = false;
 let reminderTimePointerOwner = null;
 const storageKey = () => `super-day:account:${state.user?.id}`;
 const today = () => localDate(new Date(), state.data.profile.timezone || DEFAULT_ZONE);
+const workspace = createWorkspace({
+  owner: () => state.user?.id ? 'account:' + state.user.id : 'demo',
+  accountData: () => state.data,
+  render, icon, e, showDialog: openDialog, dialog, toast, openDay,
+});
 const opening = createDailyOpening({
   background: app,
   getContext() {
@@ -111,7 +124,24 @@ function celebrate(kind, x, y) {
 
 function toast(message) { const t = document.querySelector('#toast'); t.textContent = message; t.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('visible'), 5000); }
 function saveLocal() { if (state.demo) persist('super-day:demo:v1', state.data); else persist(storageKey(), { data: state.data, outbox: state.outbox }); }
-function navigate(view) { state.view = view; state.selectedDate = null; const url = new URL(location.href); url.searchParams.set('view', view); history.replaceState(null, '', url); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function updateLocation() {
+  const url = new URL(location.href);
+  url.searchParams.set('view', state.view);
+  if (state.view === 'journey' && state.journeyMode === 'calendar') url.searchParams.set('panel', 'calendar');
+  else url.searchParams.delete('panel');
+  if (state.view !== 'today') url.searchParams.delete('focus');
+  history.replaceState(null, '', url);
+}
+function navigate(view, panel = 'overview') {
+  if (!Object.hasOwn(viewLabels, view)) return;
+  if (view === 'settings' && state.view !== 'settings') settingsBack = { view: state.view, panel: state.journeyMode };
+  state.view = view;
+  state.journeyMode = panel;
+  state.selectedDate = null;
+  updateLocation();
+  render();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
 function queue(kind, payload, repaint = true) {
   mutationRevision++;
   const op = { id: crypto.randomUUID(), kind, payload };
@@ -151,9 +181,11 @@ function renderStatus() { document.querySelectorAll('[data-sync-status]').forEac
 function shell(content) {
   const demoBanner = state.demo ? `<div class="demo-banner"><span>${icon('leaf')} Bạn đang trải nghiệm. Dữ liệu chỉ lưu trên thiết bị này.</span><button data-action="login">${state.booting ? 'Đang kiểm tra phiên…' : 'Đăng nhập'} ${icon('arrow')}</button></div>` : '';
   return `<aside class="sidebar"><a class="brand" href="./" aria-label="Super Day, trang chủ">${brand}</a>
-    <nav aria-label="Điều hướng chính">${[['today', 'sun', 'Hôm nay'], ['journey', 'calendar', 'Hành trình'], ['settings', 'settings', 'Cài đặt']].map(([id, ic, label]) => `<button data-nav="${id}" class="nav-item ${state.view === id ? 'active' : ''}" ${state.view === id ? 'aria-current="page"' : ''}>${icon(ic)}<span>${label}</span>${state.view === id ? '<span class="nav-dot"></span>' : ''}</button>`).join('')}</nav>
+    <nav aria-label="Điều hướng chính">${[['today','sun'],['journey','target'],['phases','layers'],['ideas','bulb']].map(([id, ic]) => `<button data-nav="${id}" class="nav-item ${state.view === id ? 'active' : ''}" ${state.view === id ? 'aria-current="page"' : ''}>${icon(ic)}<span>${viewLabels[id]}</span>${state.view === id ? '<span class="nav-dot"></span>' : ''}</button>`).join('')}</nav>
     <div class="sidebar-bottom"><button class="account" data-action="${state.demo ? 'login' : 'account'}"><span class="avatar">${state.demo ? icon('sun') : e((state.data.profile.display_name || state.user.email)[0].toUpperCase())}</span><span><strong>${state.demo ? 'Không gian của bạn' : e(state.data.profile.display_name || 'Tài khoản của bạn')}</strong><small>${state.demo ? 'Đăng nhập để bắt đầu' : e(state.user.email)}</small></span>${icon('chevron')}</button></div></aside>
-    <div class="page page-${state.view}"><header class="topbar"><a class="mobile-brand" href="./" aria-label="Super Day">${brand}</a><span class="breadcrumb"><strong>${{ today: 'Hôm nay', journey: 'Hành trình', settings: 'Cài đặt' }[state.view]}</strong></span><div class="topbar-right"><span class="save-state"><span class="status-dot ${state.syncError ? 'warning' : ''}"></span><span data-sync-status>${statusText()}</span></span><button class="topbar-avatar" data-action="${state.demo ? 'login' : 'account'}" aria-label="Mở tài khoản" title="${e(state.data.profile.display_name || state.user?.email || 'Tài khoản')}">${state.demo ? icon('sun') : e((state.data.profile.display_name || state.user.email)[0].toUpperCase())}</button></div></header>
+    <div class="page page-${state.view}"><header class="topbar"><a class="mobile-brand" href="./" aria-label="Super Day">${brand}</a><span class="breadcrumb"><strong>${viewLabels[state.view]}</strong></span><div class="topbar-right"><span class="save-state"><span class="status-dot ${state.syncError ? 'warning' : ''}"></span><span data-sync-status>${statusText()}</span></span><button class="icon-button workspace-bell" data-workspace-action="reminder-inbox" aria-label="Nhắc lịch">${icon('bell')}</button>
+${state.view === 'settings' ? `<button class="topbar-avatar" data-action="settings-back" aria-label="Đóng cài đặt" title="${e(state.data.profile.display_name || state.user?.email || 'Tài khoản')}">${icon('close')}</button>` :
+  `<button class="topbar-avatar" data-nav="settings" aria-label="Mở cài đặt" title="${e(state.data.profile.display_name || state.user?.email || 'Tài khoản')}">${icon('settings')}</button>`}</div></header>
     <main id="main">${state.authError ? `<div class="notice error">${e(state.authError)}</div>` : ''}${state.syncError ? `<div class="notice error" role="alert"><strong>Thay đổi đang được giữ trên thiết bị.</strong><p>${e(state.syncError)}</p><div class="button-row"><button class="text-button" data-action="retry">Thử đồng bộ lại</button><button class="text-button" data-action="resolve">Xử lý bản nháp</button><button class="text-button" data-action="export">Xuất dữ liệu</button></div></div>` : ''}${state.loading ? '<p class="loading">Đang mở không gian của bạn…</p>' : content}${demoBanner}</main>
     </div>`;
 }
@@ -182,12 +214,17 @@ function todayPage() {
     </div></div><div class="today-layout">${dailyEditor(date)}</div>`;
 }
 function journeyPage() {
+  const heading = '<div class="page-heading simple journey-heading"><div><h1>Hành trình</h1><p>Theo dõi tiến độ theo tuần và tháng.</p></div></div>';
+  const modes = renderJourneyMode();
+  if (state.journeyMode === 'calendar') return heading + modes + workspace.renderCalendar();
   const dates = state.range === 'week' ? weekDates(state.anchor) : monthDates(state.anchor);
   const tasks = state.data.tasks.filter(t => dates.includes(t.date)), st = stats(tasks);
+  const plannedDays = new Set(tasks.map(task => task.date)).size;
+  const activeDays = new Set(tasks.filter(task => task.completed).map(task => task.date)).size;
   const remaining = tasks.filter(t => !t.completed), attention = outstanding(state.data.tasks).filter(t => dates.includes(t.date) && t.carry_count >= 2);
   const selected = state.selectedDate;
   const monthStart = dates[0], pad = state.range === 'month' ? (new Date(monthStart + 'T12:00Z').getUTCDay() + 6) % 7 : 0;
-  return `<div class="page-heading simple journey-heading"><div><h1>Hành trình</h1><p>Theo dõi tiến độ theo tuần và tháng.</p></div></div><div class="journey-toolbar"><div class="segmented" aria-label="Khoảng báo cáo"><button data-range="week" class="${state.range === 'week' ? 'active' : ''}" aria-pressed="${state.range === 'week'}">Theo tuần</button><button data-range="month" class="${state.range === 'month' ? 'active' : ''}" aria-pressed="${state.range === 'month'}">Theo tháng</button></div><div class="date-controls"><button class="icon-button flip" data-period="-1" aria-label="Khoảng trước">${icon('chevron')}</button><strong>${state.range === 'week' ? `${dateLabel(dates[0], { month: 'numeric' })} – ${dateLabel(dates[6], { month: 'numeric', year: 'numeric' })}` : dateLabel(monthStart, { day: undefined, month: 'long', year: 'numeric' })}</strong><button class="icon-button" data-period="1" aria-label="Khoảng sau">${icon('chevron')}</button><button class="text-button" data-action="current-period">Hiện tại</button></div></div>
+  return `${heading}${modes}<div class="journey-toolbar"><div class="segmented" aria-label="Khoảng báo cáo"><button data-range="week" class="${state.range === 'week' ? 'active' : ''}" aria-pressed="${state.range === 'week'}">Theo tuần</button><button data-range="month" class="${state.range === 'month' ? 'active' : ''}" aria-pressed="${state.range === 'month'}">Theo tháng</button></div><div class="date-controls"><button class="icon-button flip" data-period="-1" aria-label="Khoảng trước">${icon('chevron')}</button><strong>${state.range === 'week' ? `${dateLabel(dates[0], { month: 'numeric' })} – ${dateLabel(dates[6], { month: 'numeric', year: 'numeric' })}` : dateLabel(monthStart, { day: undefined, month: 'long', year: 'numeric' })}</strong><button class="icon-button" data-period="1" aria-label="Khoảng sau">${icon('chevron')}</button><button class="text-button" data-action="current-period">Hiện tại</button></div></div>
 
     <section class="panel journey-overview" aria-label="Tổng quan tiến độ">
       <div class="journey-ring" style="--rate:${st.rate}%" role="img" aria-label="Tỷ lệ hoàn thành: ${st.rate}%">
@@ -197,7 +234,7 @@ function journeyPage() {
         <dl><div><dt>Tổng số</dt><dd>${st.total}</dd></div><div><dt>Đã xong</dt><dd>${st.done}</dd></div><div><dt>Còn lại</dt><dd>${st.remaining}</dd></div></dl>
       </div>
     </section>
-    <section class="panel calendar-panel"><div class="calendar-grid">${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(x => `<span class="calendar-weekday">${x}</span>`).join('')}${'<span></span>'.repeat(pad)}${dates.map(date => {
+    <section class="panel calendar-panel"><div class="journey-rhythm"><h2>Nhịp thực hiện</h2><span>${activeDays}/${plannedDays} ngày có việc hoàn thành</span></div><div class="calendar-grid">${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(x => `<span class="calendar-weekday">${x}</span>`).join('')}${'<span></span>'.repeat(pad)}${dates.map(date => {
       const ts = state.data.tasks.filter(t => t.date === date), s = stats(ts), hasDay = state.data.days.find(d => d.date === date);
       return `<button data-open-day="${date}" aria-label="${e(dateLabel(date))}, ${s.total ? `${s.done}/${s.total} việc` : 'chưa có kế hoạch'}${hasDay?.reflection ? ', có ghi chép' : ''}" class="calendar-day ${selected === date ? 'selected' : ''} ${date === today() ? 'is-today' : ''} ${s.total && s.done === s.total ? 'complete' : ''}" ${date > today() ? 'disabled' : ''}><strong>${+date.slice(8)}</strong><span class="calendar-progress" aria-hidden="true">${s.total && s.done === s.total ? icon('check') : s.total ? `${s.done}/${s.total}` : ''}</span>${hasDay?.reflection ? '<i aria-label="Có ghi chép"></i>' : ''}</button>`;
     }).join('')}</div><div class="calendar-legend"><span><i class="legend-dot"></i> Có kế hoạch</span><span><i class="legend-dot done"></i> Hoàn thành tất cả</span><span>— Chưa có kế hoạch</span></div></section>
@@ -206,6 +243,14 @@ function journeyPage() {
     <div class="journey-lists"><section class="panel"><div class="section-top"><h2>Còn dang dở</h2><span class="count-badge">${remaining.length}</span></div>${taskList(remaining, false, 2)}${outstanding(state.data.tasks).some(task => task.date < today()) ? `<button class="text-button" data-action="leftovers">Việc có thể chuyển sang hôm nay ${icon('arrow')}</button>` : ''}</section><section class="panel attention-panel"><div class="section-top"><h2>Một chút chú ý</h2><span class="attention-emblem">${icon('leaf')}</span></div><p class="section-description">Những việc đã chuyển ngày từ hai lần.</p>${taskList(attention, true)}</section></div>
     <section class="panel journal-list"><div class="section-title-icon">${icon('book')}<h2>Những dòng để nhớ</h2></div>${state.data.days.filter(d => dates.includes(d.date) && d.reflection).sort((a,b) => b.date.localeCompare(a.date)).map(d => `<button class="journal-item" data-open-day="${d.date}"><span>${e(dateLabel(d.date, { weekday: 'short' }))}</span><p>${e(d.reflection.slice(0, 240))}${d.reflection.length > 240 ? '…' : ''}</p>${icon('arrow')}</button>`).join('') || '<div class="empty-state">Một vài dòng khi bạn muốn. Những ghi chép của bạn sẽ ở đây.</div>'}</section>`;
 }
+
+function renderJourneyMode() {
+  return `<div class="segmented workspace-segments journey-mode" role="group" aria-label="Chế độ Hành trình">
+    ${[['overview','Hành trình'],['calendar','Lịch']].map(([id, label]) =>
+      `<button class="${state.journeyMode === id ? 'active' : ''}" data-journey-mode="${id}" aria-pressed="${state.journeyMode === id}">${label}</button>`).join('')}
+    </div>`;
+}
+
 function taskList(tasks, attention = false, preview = tasks.length) {
   const row = t => `<div class="history-task"><div><strong>${e(t.title)}</strong><small>${e(dateLabel(t.date, { month: 'numeric' }))}${t.carry_count ? ` · Đã chuyển ${t.carry_count} lần` : ''}${state.data.tasks.some(next => next.previous_task_id === t.id) ? ' · Đã chuyển tiếp' : ''}</small>${attention && t.reason ? `<p>${e(t.reason)}</p>` : ''}</div><button class="icon-button" data-open-day="${t.date}" aria-label="Xem công việc ${e(t.title)}">${icon('arrow')}</button></div>`;
   const extra = tasks.slice(preview);
@@ -251,7 +296,7 @@ function settingsPage() {
   return `<div class="page-heading simple settings-heading"><div><h1>Cài đặt</h1></div></div><div class="settings-layout"><div class="main-column"><section class="panel settings-section account-section"><div class="section-title-icon"><span class="profile-emblem">${icon('person')}</span><h2 class="sr-only">Tài khoản</h2></div><div class="profile-fields"><div class="setting-row profile-email"><span>Email</span><strong>${state.demo ? 'Chưa đăng nhập' : e(state.user.email)}</strong></div><label class="setting-row profile-name" for="display-name"><span>Tên</span><input id="display-name" data-profile="display_name" maxlength="80" value="${e(state.data.profile.display_name)}" placeholder="Bạn muốn được gọi là gì?"></label></div><details class="account-options" ${document.querySelector('.account-options[open]') ? 'open' : ''}><summary>Tuỳ chọn tài khoản</summary><label class="setting-row" for="timezone"><span>Múi giờ</span><select id="timezone" data-profile="timezone">${[...new Set([DEFAULT_ZONE, state.data.profile.timezone, 'Asia/Bangkok', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'])].map(z => `<option ${z === state.data.profile.timezone ? 'selected' : ''} value="${z}">${z === DEFAULT_ZONE ? 'Việt Nam (GMT+7)' : z.replaceAll('_', ' ')}</option>`).join('')}</select></label></details>${state.demo ? '<button class="primary-button" data-action="login">Đăng nhập bằng email '+icon('arrow')+'</button>' : '<div class="password-settings"><button class="secondary-button" data-action="change-password">Thiết lập hoặc thay đổi mật khẩu</button></div>'}</section>
     <section class="panel settings-section appearance-section"><div class="section-title-icon">${icon('type')}<h2>Cỡ chữ</h2></div><div class="font-options" role="group" aria-label="Cỡ chữ">${FONT_OPTIONS.map(option => `<button id="font-size-${option.value}" class="font-option ${state.appearance.fontSize === option.value ? 'selected' : ''}" data-font-size="${option.value}" aria-pressed="${state.appearance.fontSize === option.value}"><span>${option.label}</span></button>`).join('')}</div></section>
     <section class="panel settings-section"><div class="section-title-icon">${icon('bell')}<h2>Thông báo hằng ngày</h2></div><p class="section-description">Giờ nhắc theo múi giờ tài khoản.</p>${reminders.map(r => `<div class="reminder-row"><span class="reminder-icon">${icon({ morning: 'sun', noon: 'leaf', evening: 'moon' }[r.kind])}</span><div><strong>${{ morning: 'Mục tiêu ngày mới', noon: 'Kiểm tra tiến độ', evening: 'Nhìn lại hôm nay' }[r.kind]}</strong></div><label class="sr-only" for="time-${r.kind}">Giờ ${r.kind === 'morning' ? 'sáng' : r.kind === 'noon' ? 'trưa' : 'tối'}</label><div class="reminder-time-control"><input type="time" id="time-${r.kind}" data-reminder-time="${r.kind}" value="${e(r.time.slice(0, 5))}" step="60" required><button id="time-done-${r.kind}" class="text-button time-done" data-reminder-done="${r.kind}" aria-label="Xong giờ ${r.kind === 'morning' ? 'Mục tiêu ngày mới' : r.kind === 'noon' ? 'Kiểm tra tiến độ' : 'Nhìn lại hôm nay'}" hidden>Xong</button></div><button class="toggle ${r.enabled ? 'on' : ''}" role="switch" aria-checked="${r.enabled}" aria-label="Bật tắt ${r.kind === 'morning' ? 'nhắc sáng' : r.kind === 'noon' ? 'nhắc trưa' : 'nhắc tối'}" data-reminder-toggle="${r.kind}"><span></span></button></div>`).join('')}<div class="notification-state"><span class="status-dot ${state.pushInfo?.ready ? '' : 'warning'}"></span>${e(pushLabel)}</div><div class="button-row"><button class="primary-button" data-action="enable-push" ${state.pushBusy || state.pushSending || (!state.demo && !config.oneSignalAppId) ? 'disabled' : ''}>${icon('bell')} ${state.pushBusy ? 'Đang đăng ký…' : !state.demo && !state.push ? 'Kết nối lại thông báo' : 'Cho phép thông báo'}</button><button class="secondary-button" data-action="test-push" ${state.demo || !state.pushInfo?.ready || state.pushBusy || state.pushSending ? 'disabled' : ''}>${state.pushSending ? 'Đang gửi…' : 'Gửi thông báo thử'}</button></div>${state.demo ? '' : pushDiagnostics()}<p class="field-hint">Thông báo thử chỉ xác nhận gửi khi hệ thống chấp nhận. Hãy kiểm tra thông báo trên iPhone của bạn.</p></section>
-    <section class="panel settings-section"><div class="section-title-icon">${icon('download')}<h2>Dữ liệu cá nhân</h2></div><p class="section-description">Xuất công việc, lịch sử chuyển ngày, ghi chép và cài đặt dưới dạng JSON.</p><div class="button-row"><button class="secondary-button" data-action="export">${icon('download')} Xuất dữ liệu cá nhân</button>${!state.demo ? '<button class="text-button logout-button" data-action="logout">'+icon('logout')+' Đăng xuất</button>' : '<button class="text-button" data-action="reset-demo">Đặt lại bản trải nghiệm</button>'}</div></section></div>
+    <section class="panel settings-section"><div class="section-title-icon">${icon('cloud')}<h2>Sao lưu &amp; đồng bộ</h2></div><p class="section-description">Việc hằng ngày và nhật ký dùng đồng bộ theo tài khoản. Lịch trình, giai đoạn và ý tưởng được lưu trên thiết bị này và có trong tệp xuất dữ liệu.</p></section><section class="panel settings-section"><div class="section-title-icon">${icon('download')}<h2>Dữ liệu cá nhân</h2></div><p class="section-description">Xuất công việc, lịch sử chuyển ngày, ghi chép và cài đặt dưới dạng JSON.</p><div class="button-row"><button class="secondary-button" data-action="export">${icon('download')} Xuất dữ liệu cá nhân</button>${!state.demo ? '<button class="text-button logout-button" data-action="logout">'+icon('logout')+' Đăng xuất</button>' : '<button class="text-button" data-action="reset-demo">Đặt lại bản trải nghiệm</button>'}</div></section><section class="panel settings-section"><div class="section-title-icon">${icon('leaf')}<h2>Giới thiệu &amp; hỗ trợ</h2></div><p class="section-description">Super Day giúp anh dành thời gian cho những điều quan trọng.</p><a class="text-button" href="https://github.com/quangminhdlus-dot/super-day/issues" target="_blank" rel="noopener">Gửi góp ý ${icon('arrow')}</a></section></div>
     </div>`;
 }
 function resizeTaskFields() {
@@ -298,7 +343,7 @@ function render() {
   renderAfterTimeEdit = false;
   applyAppearance(document.documentElement, state.appearance);
   const focused = document.activeElement, id = focused?.id, selection = typeof focused?.selectionStart === 'number' ? [focused.selectionStart, focused.selectionEnd] : null;
-  const content = state.view === 'today' ? todayPage() : state.view === 'journey' ? journeyPage() : settingsPage();
+  const content = ({ today: todayPage, journey: journeyPage, phases: workspace.renderPhases, ideas: workspace.renderIdeas, settings: settingsPage })[state.view]();
   app.innerHTML = shell(content);
   for (const [draftId, draft] of textDrafts) { const input = document.getElementById(draftId); if (input) { input.value = draft.value; textDrafts.set(draftId, input); } }
   resizeTaskFields();
@@ -320,10 +365,10 @@ function showPasswordChange() {
 }
 
 function exportData() {
-  const blob = new Blob([JSON.stringify({ product: 'Super Day', schema_version: 1, exported_at: new Date().toISOString(), mode: state.demo ? 'demo' : 'account', email: state.user?.email || null, ...state.data, pending_changes: state.outbox }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ product: 'Super Day', schema_version: 1, exported_at: new Date().toISOString(), mode: state.demo ? 'demo' : 'account', email: state.user?.email || null, ...state.data, pending_changes: state.outbox, local_workspace: workspace.snapshot() }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `super-day-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Đã xuất dữ liệu của bạn.');
 }
-function openDay(date) { state.selectedDate = date; state.view = 'journey'; state.anchor = date; render(); document.querySelector('.detail-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function openDay(date) { state.selectedDate = date; state.view = 'journey'; state.journeyMode = 'overview'; state.anchor = date; updateLocation(); render(); document.querySelector('.detail-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 async function carry(id) {
   const t = state.data.tasks.find(x => x.id === id); if (!t) return;
   if (state.data.tasks.filter(t => t.date === today()).length >= 3) return toast('Hôm nay đã có đủ ba việc. Hãy dành chỗ trước khi chuyển.');
@@ -353,6 +398,7 @@ async function handleAction(action) {
     finally { button.disabled = false; }
   }
   if (action === 'account') return navigate('settings');
+  if (action === 'settings-back') return navigate(settingsBack.view, settingsBack.panel);
   if (action === 'current-period') { state.anchor = today(); state.selectedDate = null; render(); }
   if (action === 'close-detail') { state.selectedDate = null; render(); }
   if (action === 'export') exportData();
@@ -545,7 +591,9 @@ function commitText(el) {
 function flushText(id) { const draft = textDrafts.get(id); if (!draft) return; clearTimeout(textTimers.get(id)); textTimers.delete(id); textDrafts.delete(id); commitText(draft); }
 function flushAllText() { for (const id of [...textDrafts.keys()]) flushText(id); }
 document.addEventListener('input', event => {
-  const el = event.target; if (!el.matches('[data-task],[data-reason],[data-reflection],[data-profile="display_name"]')) return;
+  const el = event.target;
+  if (el.matches('[data-workspace-search]')) return workspace.setSearch(el.value);
+  if (!el.matches('[data-task],[data-reason],[data-reflection],[data-profile="display_name"]')) return;
   if (el.matches('textarea[data-task],textarea[data-reason]')) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight + 2}px`; }
   clearTimeout(textTimers.get(el.id)); textDrafts.set(el.id, el); textTimers.set(el.id, setTimeout(() => flushText(el.id), 650));
 });
@@ -574,7 +622,9 @@ document.addEventListener('click', async event => {
   }
   if (el.hasAttribute('data-dialog-close')) { dialog.close(); return; }
   if (el.dataset.fontSize) { chooseFontSize(el.dataset.fontSize); return; }
-  if (el.dataset.nav) navigate(el.dataset.nav);
+  if (el.dataset.nav) return navigate(el.dataset.nav);
+  if (el.dataset.journeyMode) return navigate('journey', el.dataset.journeyMode);
+  if (el.dataset.workspaceAction) return workspace.handle(el);
   if (el.dataset.openDay) openDay(el.dataset.openDay);
   if (el.dataset.range) { state.range = el.dataset.range; state.selectedDate = null; render(); }
   if (el.dataset.period) { state.anchor = shiftDate(state.anchor, state.range === 'week' ? +el.dataset.period * 7 : +el.dataset.period * (el.dataset.period === '1' ? monthDates(state.anchor).length - (+state.anchor.slice(8) - 1) : +state.anchor.slice(8))); state.selectedDate = null; render(); }
@@ -615,6 +665,11 @@ dialog.addEventListener('click', event => { if (event.target === dialog) { const
 // Keep secrets only in password inputs while this dialog is open, never in saved drafts or app state.
 dialog.addEventListener('close', () => {
   dialog.querySelectorAll('input[type="password"], input[name="nonce"]').forEach(input => { input.value = ''; });
+});
+document.addEventListener('submit', event => {
+  if (!event.target.matches?.('[data-workspace-form]')) return;
+  event.preventDefault();
+  workspace.submit(event.target);
 });
 document.addEventListener('submit', async event => {
   const form = event.target;
@@ -658,6 +713,7 @@ document.addEventListener('submit', async event => {
 async function enterAccount(user) {
   if (state.user?.id === user.id) return;
   stopPushObservation?.(); stopPushObservation = null; ++pushInspection;
+  workspace.reset();
   state.user = user; receiveAppearance(user); state.demo = false; state.syncError = ''; state.push = null; state.pushInfo = null; state.pushError = ''; state.pushBusy = false; state.pushSending = false; state.pushStatus = 'Đang chuẩn bị kết nối…';
   const cached = read(storageKey(), null); state.data = cached?.data || blankData(); state.outbox = cached?.outbox || []; state.loading = !cached; render();
   await refresh(); state.loading = false; state.booting = false; render(); opening.show(); syncAppearance();
@@ -690,6 +746,7 @@ async function boot() {
           stopPushObservation?.(); stopPushObservation = null; ++pushInspection;
           state.pushInfo = null; state.pushError = ''; state.pushBusy = false; state.pushSending = false;
           dialog.close();
+          workspace.reset();
           const previousKey = storageKey(), hadDrafts = state.outbox.length > 0; state.user = null; receiveAppearance(null); state.demo = true; state.data = read('super-day:demo:v1', null) || demoData(); state.outbox = []; state.syncError = ''; state.push = null; state.loading = false; state.booting = false; if (!hadDrafts) localStorage.removeItem(previousKey); render();
         }
       });
@@ -699,6 +756,7 @@ async function boot() {
     state.booting = false; render();
   }
   opening.show();
+  setInterval(() => { if (!state.loading && !state.booting && !state.authError) workspace.tick(); }, 6000);
 }
 window.addEventListener('online', async () => { if (!state.syncError.includes('CONFLICT')) state.syncError = ''; await flush(); await refresh(); syncAppearance(); render(); });
 window.addEventListener('focus', () => refresh());
@@ -706,10 +764,11 @@ window.addEventListener('resize', () => requestAnimationFrame(resizeTaskFields))
 window.addEventListener('pagehide', () => { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { saveReminderTime(editingReminderTime()?.element); flushAllText(); saveLocal(); }
-  else { opening.reconcile(); opening.show(); refresh(); }
+  else { opening.reconcile(); opening.show(); if (!state.loading && !state.booting) workspace.tick(); refresh(); }
 });
 window.addEventListener('pageshow', event => { if (event.persisted) { opening.reconcile(); opening.show(); } });
 window.addEventListener('storage', opening.onStorage);
+window.addEventListener('storage', workspace.onStorage);
 setInterval(() => {
   if (today() !== lastDate) { flushAllText(); state.selectedDate = null; lastDate = today(); render(); }
   if (document.visibilityState === 'visible') refresh();
