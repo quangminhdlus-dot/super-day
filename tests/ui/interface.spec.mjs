@@ -6,6 +6,11 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/config.js', route => route.fulfill({ contentType: 'text/javascript', body: 'window.SUPER_DAY_CONFIG = {};' }));
 });
 async function navigate(page, view) {
+  if (view === 'settings') {
+    if (!await page.locator('.page-settings').count()) await page.getByRole('button', { name: 'Mở cài đặt' }).click();
+    await expect(page.locator('.settings-heading')).toHaveText('Cài đặt');
+    return;
+  }
   await page.locator(`.sidebar [data-nav="${view}"]`).click();
   await expect(page.locator(`.sidebar [data-nav="${view}"]`)).toHaveAttribute('aria-current', 'page');
 }
@@ -30,7 +35,7 @@ async function checkLayout(page) {
   expect(issues).toEqual([]);
 }
 for (const width of [320, 390, 430, 440, 768, 1440]) {
-  test(`Three screens fit at ${width}px in all three font sizes`, async ({ page }, _testInfo) => {
+  test(`App screens fit at ${width}px in all three font sizes`, async ({ page }, _testInfo) => {
     await page.setViewportSize({ width, height: width >= 1024 ? 1000 : 844 });
     await page.goto('./');
     await page.evaluate(() => document.fonts.ready);
@@ -39,7 +44,7 @@ for (const width of [320, 390, 430, 440, 768, 1440]) {
       await page.locator(`button[data-font-size="${size}"]`).click();
       await expect(page.locator('html')).toHaveAttribute('data-font-size', size);
       await expect(page.locator(`button[data-font-size="${size}"]`)).toHaveAttribute('aria-pressed', 'true');
-      await expect(page.locator('.settings-section')).toHaveCount(4);
+      await expect(page.locator('.settings-section')).toHaveCount(6);
       await expect(page.locator('[data-reminder-time]')).toHaveCount(3);
       await checkLayout(page);
       await navigate(page, 'today');
@@ -54,6 +59,9 @@ for (const width of [320, 390, 430, 440, 768, 1440]) {
       await checkLayout(page);
       await page.locator('[data-range="month"]').click();
       await checkLayout(page);
+      await page.locator('[data-journey-mode="calendar"]').click();
+      await checkLayout(page);
+      for (const view of ['phases', 'ideas']) { await navigate(page, view); await checkLayout(page); }
     }
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-font-size', 'large');
@@ -170,7 +178,7 @@ test('Compact settings preserve saved values and fixed reminder order after edit
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./?view=settings');
   await expect(page.locator('.settings-heading')).toHaveText('Cài đặt');
-  await expect(page.locator('.settings-section h2')).toHaveText(['Tài khoản', 'Cỡ chữ', 'Thông báo hằng ngày', 'Dữ liệu cá nhân']);
+  await expect(page.locator('.settings-section h2')).toHaveText(['Tài khoản', 'Cỡ chữ', 'Thông báo hằng ngày', 'Sao lưu & đồng bộ', 'Dữ liệu cá nhân', 'Giới thiệu & hỗ trợ']);
   await expect(page.getByLabel('Tên', { exact: true })).toHaveValue(data.profile.display_name);
   await expect(page.locator('.font-option')).toHaveText(['Nhỏ', 'Trung bình', 'Lớn']);
   await expect(page.locator('button[data-font-size="large"]')).toHaveAttribute('aria-pressed', 'true');

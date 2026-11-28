@@ -122,7 +122,7 @@ test('the Vietnam date and separate account markers survive logout and sign-in',
   await expect(intro).toHaveAttribute('data-date', '2026-11-27');
   await intro.getByRole('button').tap();
   const signIn = async () => {
-    await page.getByRole('button', { name: 'Mở tài khoản' }).tap();
+    await page.locator('main .demo-banner button').tap();
     await page.locator('#login-email').fill(user.email);
     await page.locator('#login-password').fill('fixture-password');
     await page.locator('#password-login-form button[type=submit]').tap();
@@ -132,7 +132,7 @@ test('the Vietnam date and separate account markers survive logout and sign-in',
   await expect(intro).toHaveAttribute('data-date', '2026-11-27');
   await expect(intro).toHaveAttribute('data-place', 'santorini');
   await intro.getByRole('button').tap();
-  await page.locator('.sidebar [data-nav=settings]').tap();
+  await page.locator('.topbar [data-nav=settings]').tap();
   await page.locator('[data-action=logout]').tap();
   await expect(page.locator('.save-state')).toContainText('Bản trải nghiệm');
   await page.locator('.sidebar [data-nav=today]').tap();
