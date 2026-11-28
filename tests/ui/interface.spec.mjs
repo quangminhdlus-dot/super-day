@@ -124,7 +124,7 @@ test('An existing signed-in account keeps its data and saves font choice through
   await page.addInitScript(value => localStorage.setItem('super-day-auth', JSON.stringify(value)), session);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');
-  await expect(page.locator('.greeting-name')).toContainText('Quang Minh');
+  await expect(page.locator('.topbar-avatar')).toHaveAttribute('title', 'Quang Minh');
   await expect(page.locator('[data-sync-status]')).toHaveText('Đã đồng bộ');
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: 'work/screenshots/account-today-390.png', fullPage: true });

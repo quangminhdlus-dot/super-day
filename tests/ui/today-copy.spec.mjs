@@ -14,13 +14,13 @@ test('Hôm nay uses concise headings, a reflection placeholder, and keeps the da
   await expect(page.locator('.page-heading')).not.toContainText(/Chào buổi (sáng|trưa|chiều|tối)/);
   await expect(page.locator('.page-heading')).not.toContainText('Chọn đúng việc. Làm đến cùng.');
   await expect(page.locator('.sidebar-note')).toHaveCount(0);
-  await expect(page.locator('.priorities h2')).toHaveText('3 việc quan trọng');
+  await expect(page.getByRole('region', { name: 'Ba việc quan trọng' })).toBeVisible();
   await expect(page.locator('.priorities')).not.toContainText('Ưu tiên của bạn');
 
-  await expect(page.locator('.reflection h2')).toHaveText('Một chút nhìn lại');
+  await expect(page.locator('.reflection h2')).toHaveText('Một chút ghi lại hôm nay...');
   const reflection = page.locator('textarea[data-reflection]');
   await expect(reflection).toHaveAttribute('placeholder',
-    'Hôm nay bạn cảm thấy như thế nào? Có điều gì khiến bạn suy nghĩ hoặc muốn ghi nhớ?');
+    'Hôm nay bạn cảm thấy thế nào?');
   await expect(page.locator('.reflection-prompt')).toHaveCount(0);
   await expect(page.locator('.reflection')).not.toContainText('Một niềm vui nhỏ, một điều học được');
   await expect(page.locator('.end-day')).not.toContainText('Dành một khoảnh khắc');
@@ -35,4 +35,3 @@ test('Hôm nay uses concise headings, a reflection placeholder, and keeps the da
   await expect(page.locator('textarea[data-reflection]')).toHaveValue('Điều em muốn ghi nhớ hôm nay.');
   await expect(page.locator('.end-day [data-close-day]')).toHaveText(/Mở lại ngày/);
 });
-

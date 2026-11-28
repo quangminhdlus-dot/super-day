@@ -41,12 +41,14 @@ export function createDailyOpening({ background, getContext, enterToday }) {
     dialog.dataset.date = date;
     dialog.innerHTML = `<button type="button" class="opening-surface" aria-label="Mở Hôm nay" autofocus><img class="opening-photo" alt=""></button>
       <div class="opening-shade"></div><canvas class="opening-fragments" aria-hidden="true" hidden></canvas>
-      <div class="opening-copy"><h1 id="opening-place-name"></h1><p class="opening-country"></p>
-      <p class="opening-address"></p><ul class="opening-keywords" aria-label="Đặc điểm địa danh"></ul></div>`;
+      <div class="opening-copy"><p class="opening-wordmark" aria-hidden="true">superday<span class="brand-seed"></span></p><h1 id="opening-place-name"></h1><p class="opening-country"></p>
+      <p class="opening-address"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.7"/></svg><span></span></p><ul class="opening-keywords" aria-label="Đặc điểm địa danh"></ul></div>`;
 
-    dialog.querySelector('h1').textContent = place.name;
+    const title = dialog.querySelector('h1');
+    title.textContent = place.name;
+    title.classList.toggle('long-name', place.name.length > 13);
     dialog.querySelector('.opening-country').textContent = place.country;
-    dialog.querySelector('.opening-address').textContent = place.address;
+    dialog.querySelector('.opening-address span').textContent = place.address;
     for (const text of place.keywords) {
       const item = document.createElement('li');
       item.textContent = text;
